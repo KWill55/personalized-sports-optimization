@@ -20,7 +20,7 @@ import pandas as pd
 from pathlib import Path
 
 # ========== Parameters ==========
-data_dir = Path("../data/freethrows1")
+data_dir = Path("../data/freethrows3")
 input_path = data_dir / "release_summary.csv"
 output_path = data_dir / "average_kinematics_by_outcome.csv"
 

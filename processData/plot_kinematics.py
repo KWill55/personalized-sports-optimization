@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # ======= File path =======
-summary_path = "../data/freethrows1/release_summary.csv"
+summary_path = "../data/freethrows3/release_summary.csv"
 
 # ======= Load Data =======
 release_data_df = pd.read_csv(summary_path)
@@ -46,7 +46,7 @@ def plot_joint_group(data, columns, title, ax):
         if col in data.columns:
             ax.plot(data['clip_name'], data[col], marker='o', label=col)
     ax.set_title(title)
-    ax.set_xlabel("Clip Name")
+    # ax.set_xlabel("Clip Name")
     ax.set_ylabel("Angle (degrees)")
     ax.tick_params(axis='x', rotation=45)
     ax.legend()

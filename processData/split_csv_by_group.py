@@ -19,7 +19,7 @@ import pandas as pd
 from pathlib import Path
 
 # Input
-release_summary_path = Path("../data/freethrows1/release_summary.csv")
+release_summary_path = Path("../data/freethrows3/release_summary.csv")
 
 # Output paths
 core_path = release_summary_path.parent / "core_angles.csv"

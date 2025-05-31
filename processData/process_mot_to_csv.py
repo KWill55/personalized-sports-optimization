@@ -23,7 +23,7 @@ import re
 
 # ======================================== Parameters ========================================
 
-mot_folder = "../data/freethrows1/mot_files"  # Directory containing the .mot files
+mot_folder = "../data/freethrows3/mot_files"  # Directory containing the .mot files
 outcomes_path = Path(mot_folder).parent / "outcomes.csv" # Path to make/miss csv
 release_summary_path = Path(mot_folder).parent / "release_summary.csv" # Path that the summary csv will be added to
 
