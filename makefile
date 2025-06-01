@@ -2,7 +2,9 @@
 # Purpose:
 # Automate data processing, plotting, and analysis for basketball free throw kinematics
 
-# ======================================== Paths (update if needed) ========================================
+# ======================================== 
+# Paths (update if needed)  
+# ========================================
 
 MOT_FOLDER=data/freethrows1/mot_files
 RELEASE_CSV=data/freethrows1/release/release_summary.csv
@@ -11,11 +13,15 @@ AVERAGE_CSV=data/freethrows1/release/average_kinematics_by_outcome.csv
 # Targets
 all: process split plot analyze
 
-# ======================================== 01_record_data ========================================
+# ======================================== 
+# 01_record_data 
+# ========================================
 
 # TODO implement later
 
-# ======================================== 02_process_data ========================================
+# ======================================== 
+# 02_process_data 
+# ========================================
 
 # ===== Release Data Processing =====
 
@@ -34,7 +40,9 @@ detect_phases:
 	python scripts/02_process_data/time_series/detect_phases.py
 
 
-# ======================================== 03_plot_data ========================================
+# ======================================== 
+# 03_plot_data 
+# ========================================
 
 # ===== Release Data Processing =====
 
@@ -46,7 +54,9 @@ plot: $(RELEASE_CSV)
 
 # TODO not implemented yet
 
-# ======================================== 04_analyze_data ========================================
+# ======================================== 
+# 04_analyze_data 
+# ========================================
 
 # ===== Release Data Processing =====
 
@@ -58,7 +68,9 @@ analyze_release: $(RELEASE_CSV)
 
 # TODO not implemented yet
 
-# ======================================== clean ========================================
+# ======================================== 
+# clean 
+# ========================================
 
 clean:
 	@echo "Cleaning output files..."
