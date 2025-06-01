@@ -31,11 +31,11 @@ session = "freethrows3"  # Change this to switch sessions
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
-data_dir = base_dir / "data" / session
-release_dir = data_dir / "02_process_data" / "release"
+data_dir = base_dir / "data" 
+session_dir = data_dir / session
 
-input_path = release_dir / "release_summary.csv"
-output_path = release_dir / "average_kinematics_by_outcome.csv"
+input_path = session_dir / "02_process_data" / "release" / "release_summary.csv"
+output_path = session_dir / "04_analyze_data" / "release" / "average_kinematics_by_outcome.csv"
 
 # ======================================== 
 # # Load release summary CSV

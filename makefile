@@ -49,7 +49,7 @@ process_time_series:
 
 
 # ======================================== 
-# 03_plot_data 
+# 03_visualize_data 
 # ========================================
 
 # ===== Release Data Processing =====
@@ -60,7 +60,13 @@ plot_release: $(RELEASE_CSV)
 
 # ===== Time Series Data Processing =====
 
-# TODO not implemented yet
+plot_kinematics_time_series: $(RELEASE_CSV)
+	@echo "Saving kinematic plots for each free throw in $(SESSION)..."
+	python scripts/03_visualize_data/time_series/plot_kinematics_time_series.py
+
+plot_velocities_time_series: $(RELEASE_CSV)
+	@echo "Saving velocity plots for each free throw in $(SESSION)..."
+	python scripts/03_visualize_data/time_series/plot_velocities_time_series.py
 
 # ======================================== 
 # 04_analyze_data 
