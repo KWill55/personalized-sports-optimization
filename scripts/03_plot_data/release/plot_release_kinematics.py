@@ -31,16 +31,20 @@ session = "freethrows1"  # Change this to switch sessions
 # Paths 
 # ========================================
 
-from pathlib import Path
-
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
 summary_path = base_dir / "data" / session / "release" / "release_summary.csv"
 
-# ======= Load Data =======
+# ======================================== 
+# Read Release Summary CSV
+# ========================================
+
 release_data_df = pd.read_csv(summary_path)
 
-# ======= Joint Groups =======
+# ======================================== 
+# Define Joint Groups 
+# ========================================
+
 pelvis = ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']
 hips_r = ['hip_flexion_r', 'hip_adduction_r', 'hip_rotation_r']
 hips_l = ['hip_flexion_l', 'hip_adduction_l', 'hip_rotation_l']
@@ -50,7 +54,10 @@ arms_l = ['arm_flex_l', 'arm_add_l', 'arm_rot_l', 'elbow_flex_l', 'pro_sup_l']
 legs_r = ['knee_angle_r', 'ankle_angle_r', 'subtalar_angle_r', 'mtp_angle_r']
 legs_l = ['knee_angle_l', 'ankle_angle_l', 'subtalar_angle_l', 'mtp_angle_l']
 
-# ======= Plotting Function =======
+# ======================================== 
+# Plotting Function 
+# ========================================
+
 def plot_joint_group(data, columns, title, ax):
     for idx, outcome in enumerate(data['outcome']):
         color = 'green' if outcome == 'made' else 'red'
@@ -64,6 +71,11 @@ def plot_joint_group(data, columns, title, ax):
     ax.tick_params(axis='x', rotation=45)
     ax.legend()
     ax.grid(True)
+
+
+# ======================================== 
+# Plotting Core, Arms, and Legs Angles
+# ========================================
 
 # ======= Core Plot (Pelvis, Hips, Back) =======
 fig_core, axs_core = plt.subplots(3, 1, figsize=(14, 16))

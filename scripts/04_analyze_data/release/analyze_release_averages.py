@@ -23,8 +23,6 @@ from pathlib import Path
 # Parameters 
 # ========================================
 
-from pathlib import Path
-
 session = "freethrows1"  # Change this to switch sessions
 
 # ======================================== 
@@ -39,14 +37,23 @@ release_dir = data_dir / "release"
 input_path = release_dir / "release_summary.csv"
 output_path = release_dir / "average_kinematics_by_outcome.csv"
 
-# ========== Load and Filter Data ==========
+# ======================================== 
+# # Load release summary CSV
+# ========================================
+
 release_df = pd.read_csv(input_path)
 filtered_df = release_df[release_df['outcome'].isin(['made', 'miss'])]
 
-# ========== Compute Averages ==========
+# ======================================== 
+# Compute Average Kinematics
+# ========================================
+
 numeric_cols = filtered_df.select_dtypes(include='number').columns.difference(['time'])
 average_kinematics = filtered_df.groupby('outcome')[numeric_cols].mean()
 
-# ========== Save Output ==========
+# ======================================== 
+# Save Results
+# ========================================
+
 average_kinematics.to_csv(output_path, index=True)
 print(f"Average kinematics saved to {output_path}")
