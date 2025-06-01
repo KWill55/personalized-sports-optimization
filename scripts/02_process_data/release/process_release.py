@@ -1,5 +1,5 @@
 """
-Title: process_mot_to_csv.py
+Title: process_release.py
 
 Purpose:
     Extracts kinematic joint angle data at the moment of release (when the shooting elbow is fully extended) from OpenCap .mot files
@@ -25,7 +25,7 @@ import re
 # Parameters 
 # ========================================
 
-session = "freethrows1"  # Change this to switch sessions
+session = "freethrows3"  # Change this to switch sessions
 
 # ======================================== 
 # Paths
@@ -35,11 +35,15 @@ script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
 session_dir = base_dir / "data" / session
 
-mot_folder = session_dir / "mot_files"
-outcomes_path = session_dir / "outcomes.csv"
+mot_folder = session_dir / "01_record_data" / "mot_files"
+outcomes_path = session_dir / "01_record_data" / "outcomes.csv"
 
-release_dir = session_dir / "release"
+release_dir = session_dir / "02_process_data" / "release"
 release_summary_path = release_dir / "release_summary.csv"
+
+# Ensure output folder exists
+release_dir.mkdir(parents=True, exist_ok=True)
+
 
 # Ensure output folder exists
 release_dir.mkdir(parents=True, exist_ok=True)

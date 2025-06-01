@@ -23,7 +23,7 @@ from pathlib import Path
 # Parameters 
 # ========================================
 
-session = "freethrows1"  # Change this to switch sessions
+session = "freethrows3"  # Change this to switch sessions
 
 # ======================================== 
 # Paths 
@@ -32,7 +32,7 @@ session = "freethrows1"  # Change this to switch sessions
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
 data_dir = base_dir / "data" / session
-release_dir = data_dir / "release"
+release_dir = data_dir / "02_process_data" / "release"
 
 input_path = release_dir / "release_summary.csv"
 output_path = release_dir / "average_kinematics_by_outcome.csv"

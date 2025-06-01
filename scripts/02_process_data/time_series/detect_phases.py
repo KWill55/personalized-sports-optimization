@@ -22,7 +22,7 @@ from pathlib import Path
 # Parameters 
 # ========================================
 
-session = "freethrows1"  # Change this to switch sessions
+session = "freethrows3"  # Change this to switch sessions
 
 # ======================================== 
 # Paths 
@@ -30,8 +30,8 @@ session = "freethrows1"  # Change this to switch sessions
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
-mot_folder = base_dir / "data" / session / "mot_files"
-output_csv = base_dir / "data" / session / "time_series" / "freethrow_phases.csv"
+mot_folder = base_dir / "data" / session / "01_record_data" / "mot_files"
+output_csv = base_dir / "data" / session / "02_process_data" / "time_series" / "freethrow_phases.csv"
 
 # ======================================== 
 # Functions 

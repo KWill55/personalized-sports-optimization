@@ -6,9 +6,12 @@
 # Paths (update if needed)  
 # ========================================
 
-MOT_FOLDER=data/freethrows1/mot_files
-RELEASE_CSV=data/freethrows1/release/release_summary.csv
-AVERAGE_CSV=data/freethrows1/release/average_kinematics_by_outcome.csv
+SESSION=freethrows1
+BASE_DIR=data/$(SESSION)/02_process_data/release
+
+RELEASE_CSV=$(BASE_DIR)/release_summary.csv
+AVERAGE_CSV=$(BASE_DIR)/average_kinematics_by_outcome.csv
+
 
 # Targets
 all: process split plot analyze
@@ -27,17 +30,22 @@ all: process split plot analyze
 
 process_release: 
 	@echo "Processing .mot files into release_summary.csv..."
-	python scripts/02_process_data/release/process_mot_to_csv.py
+	python scripts/02_process_data/release/process_release.py
 
+#TODO make this script usable for both release and time series data
 split_release: $(RELEASE_CSV)
 	@echo "Splitting release_summary.csv into separate csvs (core,legs,arms)..."
-	python scripts/02_process_data/release/split_csv_by_group.py
+	python scripts/02_process_data/release/split_release.py
 
 # ===== Time Series Data Processing =====
 
 detect_phases:
 	@echo "Detecting phases in .mot files..."
 	python scripts/02_process_data/time_series/detect_phases.py
+
+process_time_series:
+	@echo "Processing .mot files into time series data..."
+	python scripts/02_process_data/time_series/save_time_series.py
 
 
 # ======================================== 
@@ -46,9 +54,9 @@ detect_phases:
 
 # ===== Release Data Processing =====
 
-plot: $(RELEASE_CSV)
+plot_release: $(RELEASE_CSV)
 	@echo "Generating 3 kinematic plots from release_summary.csv..."
-	python scripts/03_plot_data/release/plot_release_kinematics.py
+	python scripts/03_visualize_data/release/plot_release_kinematics.py
 
 # ===== Time Series Data Processing =====
 

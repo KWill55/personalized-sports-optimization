@@ -31,16 +31,14 @@ session = "freethrows1"  # Change this to switch sessions
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
 session_dir = base_dir / "data" / session
-release_dir = session_dir / "release"
+release_dir = session_dir / "02_process_data" / "release"
 
 release_summary_path = release_dir / "release_summary.csv"
 core_path = release_dir / "core_angles.csv"
 arms_path = release_dir / "arms_angles.csv"
 legs_path = release_dir / "legs_angles.csv"
 
-# Ensure output folder exists
 release_dir.mkdir(parents=True, exist_ok=True)
-
 
 # ======================================== 
 # Read release summary CSV
