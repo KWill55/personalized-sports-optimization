@@ -54,7 +54,7 @@ process_time_series:
 
 # ===== Release Data Processing =====
 
-plot_release: $(RELEASE_CSV)
+plot_release:
 	@echo "Generating 3 kinematic plots from release_summary.csv..."
 	python scripts/03_visualize_data/release/plot_release_kinematics.py
 
@@ -77,6 +77,19 @@ plot_velocities_time_series: $(RELEASE_CSV)
 analyze_release: $(RELEASE_CSV)
 	@echo "Analyzing average kinematics at release by outcome..."
 	python scripts/04_analyze_data/release/analyze_release_averages.py
+
+# model training 
+combine_release_summaries: $(RELEASE_CSV)
+	@echo "Combining multiple release_summary.csv files..."
+	python scripts/04_analyze_data/release/combine_release_summaries.py
+
+prepare_release_features: $(RELEASE_CSV)
+	@echo "Creating a CSV for features and labels..."
+	python scripts/04_analyze_data/release/prepare_release_features.py
+
+train_baseline_models:
+	@echo "Training baseline models on combined release data..."
+	python scripts/04_analyze_data/release/train_baseline_models.py
 
 # ===== Time Series Data Processing =====
 
