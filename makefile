@@ -47,6 +47,15 @@ process_time_series:
 	@echo "Processing .mot files into time series data..."
 	python scripts/02_process_data/time_series/save_time_series.py
 
+#doesn't work yet
+trim_freethrow_automatic:
+	@echo "Producing a trimmed free throw for evaluation..."
+	python scripts/02_process_data/time_series/trim_freethrow_automatic.py
+
+trim_freethrow_manual:
+	@echo "Opening up GUI for trimming free throw data..."
+	python scripts/02_process_data/time_series/trim_freethrow_manual.py
+
 
 # ======================================== 
 # 03_visualize_data 

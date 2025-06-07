@@ -2,6 +2,8 @@ __pycache__/
 *.csv
 *.png
 *.mot
+*.mp4
+*.mov
 
 # ...except this one
 !data/freethrows1/outcomes.csv
