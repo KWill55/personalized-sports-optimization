@@ -56,6 +56,18 @@ trim_freethrow_manual:
 	@echo "Opening up GUI for trimming free throw data..."
 	python scripts/02_process_data/time_series/trim_freethrow_manual.py
 
+create_hoop_regions:
+	@echo "Opening GUI to define hoop regions (above and below)..."
+	python scripts/02_process_data/time_series/create_hoop_regions.py
+
+find_hsv_region:
+	@echo "Opening GUI to define HSV region..."
+	python scripts/02_process_data/time_series/tune_hsv.py
+
+detect_make:
+	@echo "Detecting makes and misses from free throw data..."
+	python scripts/02_process_data/time_series/detect_make.py
+
 
 # ======================================== 
 # 03_visualize_data 
