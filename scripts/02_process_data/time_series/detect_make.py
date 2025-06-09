@@ -4,6 +4,8 @@ import csv
 from pathlib import Path
 import math
 
+from metrics.release_angle import compute_release_angle
+
 # =========================
 # Configuration Parameters
 # =========================

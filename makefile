@@ -20,7 +20,18 @@ all: process split plot analyze
 # 01_record_data 
 # ========================================
 
-# TODO implement later
+identify_cameras:
+	@echo "TODO..."
+	python scripts/01_record_data/identify_cameras.py
+
+#Step 1: Tune the physical intrinsics
+tune_intrinsics:
+	@echo "Opening GUI for intrinsic tuning..."
+	python scripts/01_record_data/01_tune_intrinsics.py
+
+capture_image_pairs:
+	@echo "Capturing image pairs for calibration..."
+	python scripts/01_record_data/capture_image_pairs.py
 
 # ======================================== 
 # 02_process_data 
