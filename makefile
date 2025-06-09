@@ -29,9 +29,9 @@ tune_intrinsics:
 	@echo "Opening GUI for intrinsic tuning..."
 	python scripts/01_record_data/01_tune_intrinsics.py
 
-capture_image_pairs:
+capture_calibration_pairs:
 	@echo "Capturing image pairs for calibration..."
-	python scripts/01_record_data/capture_image_pairs.py
+	python scripts/01_record_data/02_capture_calibration_pairs.py
 
 # ======================================== 
 # 02_process_data 

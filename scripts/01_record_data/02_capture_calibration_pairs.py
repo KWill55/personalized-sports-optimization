@@ -16,8 +16,9 @@ from pathlib import Path
 # ========================================
 # Configuration
 # ========================================
-CAMERA_LEFT_INDEX = 2
-CAMERA_RIGHT_INDEX = 3
+
+CAMERA_LEFT_INDEX = 0
+CAMERA_RIGHT_INDEX = 2 
 
 # path parameters
 SESSION = "test_own_cameras"
