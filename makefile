@@ -29,9 +29,15 @@ tune_intrinsics:
 	@echo "Opening GUI for intrinsic tuning..."
 	python scripts/01_record_data/01_tune_intrinsics.py
 
+#Step 2: Capture calibration pairs
 capture_calibration_pairs:
 	@echo "Capturing image pairs for calibration..."
 	python scripts/01_record_data/02_capture_calibration_pairs.py
+
+#Step 3: Calibrate stereo cameras
+calibrate_stereo:
+	@echo "Calibrating cameras using captured pairs..."
+	python scripts/01_record_data/03_calibrate_stereo.py
 
 # ======================================== 
 # 02_process_data 
@@ -133,7 +139,5 @@ train_baseline_models:
 
 clean:
 	@echo "Cleaning output files..."
-	rm -f $(RELEASE_CSV) $(AVERAGE_CSV)
-	rm -f ../data/freethrows1/group_*.csv
 
 .PHONY: all process split plot analyze clean

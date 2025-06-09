@@ -24,12 +24,24 @@ and 3D reconstruction using OpenCV.
 import cv2 as cv
 import numpy as np
 import glob
+from pathlib import Path
+
 
 # Parameters 
-CHECKERBOARD_SIZE = (9, 6) # Checkerboard size (columns, rows)
+CHECKERBOARD_SIZE = (4,5) # Checkerboard size (columns, rows)
 SQUARE_SIZE = 2.5 # size of one square in centimeters 
-LEFT_IMAGES_PATH = 'calib_images/left/*.jpg'  # Path to left camera images
-RIGHT_IMAGES_PATH = 'calib_images/right/*.jpg'  # Path to right camera images
+
+# path parameters
+BASE_DIR = Path(__file__).resolve().parents[2]
+SESSION = "test_own_cameras"
+LEFT_IMAGES_PATH = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images" / "left"
+RIGHT_IMAGES_PATH = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images" / "right"
+
+OUTPUT_DIR = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images"
+OUTPUT_FILE = OUTPUT_DIR / "stereo_calib.npz"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # Prepare 3D object points like (0,0,0), (1,0,0), ..., (8,5,0)
 objp = np.zeros((CHECKERBOARD_SIZE[0]*CHECKERBOARD_SIZE[1], 3), np.float32)
@@ -42,12 +54,17 @@ imgpointsR = []    # 2D points in right image
 objpoints = []     # 3D points in real world
 
 # Load image files 
-left_images = sorted(glob.glob(LEFT_IMAGES_PATH))
-right_images = sorted(glob.glob(RIGHT_IMAGES_PATH))
+left_images = sorted(glob.glob(str(LEFT_IMAGES_PATH / "*.jpg")))
+right_images = sorted(glob.glob(str(RIGHT_IMAGES_PATH / "*.jpg")))
 
 for left, right in zip(left_images, right_images):
     imgL = cv.imread(left)
     imgR = cv.imread(right)
+
+    if imgL is None or imgR is None:
+        print(f"[WARNING] Could not load image pair:\n  Left: {left}\n  Right: {right}")
+        continue
+
     grayL = cv.cvtColor(imgL, cv.COLOR_BGR2GRAY)
     grayR = cv.cvtColor(imgR, cv.COLOR_BGR2GRAY)
 
@@ -58,6 +75,13 @@ for left, right in zip(left_images, right_images):
         objpoints.append(objp)
         imgpointsL.append(cornersL)
         imgpointsR.append(cornersR)
+
+if len(objpoints) == 0:
+    print("[ERROR] No valid checkerboard detections found. Check your image pairs.")
+    exit()
+else:
+    print(f"[INFO] Chessboard found in pair: {left}, {right}")
+
 
 # Calibrate each camera
 retL, mtxL, distL, _, _ = cv.calibrateCamera(objpoints, imgpointsL, grayL.shape[::-1], None, None)
@@ -73,5 +97,5 @@ retval, _, _, _, _, R, T, E, F = cv.stereoCalibrate(
     grayL.shape[::-1], criteria=criteria, flags=flags)
 
 # Save for later use
-np.savez("stereo_calib.npz", mtxL=mtxL, distL=distL, mtxR=mtxR, distR=distR, R=R, T=T)
-print("Stereo calibration complete and saved.")
+np.savez(OUTPUT_FILE, mtxL=mtxL, distL=distL, mtxR=mtxR, distR=distR, R=R, T=T)
+print(f"Stereo calibration complete and saved to {OUTPUT_FILE}")
