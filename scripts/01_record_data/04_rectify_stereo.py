@@ -23,7 +23,7 @@ from pathlib import Path
 # ========================================
 
 CAMERA_LEFT_INDEX = 0
-CAMERA_RIGHT_INDEX = 1
+CAMERA_RIGHT_INDEX = 2
 
 SESSION = "test_own_cameras"
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -73,6 +73,15 @@ print("[INFO] Rectification maps computed. Press 'q' to quit.")
 while True:
     retL, frameL = capL.read()
     retR, frameR = capR.read()
+
+    capL.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+    capL.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
+    capR.set(cv.CAP_PROP_FRAME_WIDTH, 640)
+    capR.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
+
+    cv.imshow("Raw Left", frameL)
+    cv.imshow("Raw Right", frameR)
+
 
     if not retL or not retR:
         print("[WARNING] Failed to grab frames.")

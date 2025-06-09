@@ -39,6 +39,11 @@ calibrate_stereo:
 	@echo "Calibrating cameras using captured pairs..."
 	python scripts/01_record_data/03_calibrate_stereo.py
 
+#Step 4: Rectify stereo images
+rectify_stereo:
+	@echo "Rectifying stereo images..."
+	python scripts/01_record_data/04_rectify_stereo.py
+
 # ======================================== 
 # 02_process_data 
 # ========================================
