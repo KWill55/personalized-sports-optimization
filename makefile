@@ -86,9 +86,10 @@ find_hsv_region:
 	@echo "Opening GUI to define HSV region..."
 	python scripts/02_process_data/time_series/tune_hsv.py
 
-detect_make:
-	@echo "Detecting makes and misses from free throw data..."
-	python scripts/02_process_data/time_series/detect_make.py
+detect_metrics:
+	@echo "Detecting metrics from free throw data..."
+	python scripts/02_process_data/time_series/detect_metrics.py --make-miss --release-angle
+
 
 
 # ======================================== 

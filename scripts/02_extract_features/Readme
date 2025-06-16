@@ -1,0 +1,5 @@
+Goals of Process Data
+
+Input: 2 videos for player kinematic data tracking and one video for ball tracking 
+
+Output: CSV for player kinematic data, ball tracking, and combined CSV with both 

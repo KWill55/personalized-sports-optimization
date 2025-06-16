@@ -4,7 +4,8 @@ import csv
 from pathlib import Path
 import math
 
-from metrics.release_angle import compute_release_angle
+# from metrics.release_angle import te_release_anglecompu
+# from metrics.elbow_release_frame import find_release_frame
 
 # =========================
 # Configuration Parameters
@@ -25,7 +26,7 @@ HSV_LOWER = np.array([0, 100, 100])
 HSV_UPPER = np.array([5, 255, 255])
 
 # Display settings
-DISPLAY = False
+DISPLAY = True
 PRINT_TRAJECTORY = True
 
 # =========================
@@ -99,7 +100,6 @@ def is_inside_hoop(pos, hoop_top_left, hoop_bottom_right):
         min(hoop_top_left[1], hoop_bottom_right[1]) <= y <= max(hoop_top_left[1], hoop_bottom_right[1])
     )
 
-
 def is_make(trajectory, upper_box, lower_box):
     in_upper = False
     waiting_for_next = False
@@ -127,7 +127,6 @@ def is_make(trajectory, upper_box, lower_box):
 
     return False
 
-
 # =========================
 # Main Script
 # =========================
@@ -135,6 +134,7 @@ def is_make(trajectory, upper_box, lower_box):
 def main():
     results = []
 
+    # Process each video
     for video_path in sorted(INPUT_FOLDER.glob("*.mp4")):
         print(f"\nProcessing {video_path.name}")
         cap = cv2.VideoCapture(str(video_path))
@@ -150,27 +150,38 @@ def main():
             if not ret:
                 break
 
+            # Detect ball center
             ball_center = detect_ball_center(frame, frame_idx)
             if ball_center:
                 trajectory.append(ball_center)
+                
+                # Draw detected ball center
                 if DISPLAY:
                     cv2.circle(frame, ball_center, 5, (0, 255, 0), -1)
 
             frame_idx += 1
 
             if DISPLAY:
+                
+                # Draw trajectory
                 for pt in trajectory:
                     cv2.circle(frame, pt, 3, (0, 0, 255), -1)
+
+                # Draw hoop regions
                 cv2.rectangle(frame, UPPER_HOOP_REGION[0], UPPER_HOOP_REGION[1], (255, 0, 0), 2)
                 cv2.rectangle(frame, LOWER_HOOP_REGION[0], LOWER_HOOP_REGION[1], (0, 0, 255), 2)
+
+                # Show frame in GUI until done or 'q' is pressed
                 cv2.imshow("Ball Tracking", frame)
                 if cv2.waitKey(30) & 0xFF == ord('q'):
                     break
 
         cap.release()
+        
         if DISPLAY:
             cv2.destroyAllWindows()
 
+        # Analyze trajectory for MAKE or MISS
         result = "MAKE" if is_make(trajectory, UPPER_HOOP_REGION, LOWER_HOOP_REGION) else "MISS"
         results.append((video_path.name, result))
         print(f"  Result: {result}")
