@@ -14,12 +14,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+
 # ========================================
 # Parameters
 # ========================================
 
-session = "freethrows3"  # Change this to switch sessions
-joints_to_plot = ['elbow_flex_r', 'arm_flex_r', 'hip_flexion_r']
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"  # Change this to switch sessions
+JOINTS_TO_PLOT = ['elbow_flex_r', 'arm_flex_r', 'hip_flexion_r', 'knee_angle_r', 'lumbar_extension']
 
 # ========================================
 # Paths
@@ -27,11 +29,11 @@ joints_to_plot = ['elbow_flex_r', 'arm_flex_r', 'hip_flexion_r']
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]
-session_dir = base_dir / "data" / session
+session_dir = base_dir / "data" / ATHLETE / SESSION
 
-mot_folder = session_dir / "01_record_data" / "mot_files"
-phases_csv = session_dir / "02_process_data" / "time_series" / "freethrow_phases.csv"
-output_dir = session_dir / "03_visualize_data" / "time_series" / "kinematic_plots"
+mot_folder = session_dir / "player_tracking_1" / "01_record_data" / "mot_files"
+phases_csv = session_dir / "player_tracking_1" / "02_process_data" / "time_series" / "freethrow_phases.csv"
+output_dir = session_dir / "player_tracking_1" / "03_visualize_data" / "time_series" / "kinematic_plots"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================
@@ -91,14 +93,14 @@ for mot_file in mot_folder.glob("*.mot"):
 
     # Plot
     plt.figure(figsize=(10, 6))
-    for joint in joints_to_plot:
+    for joint in JOINTS_TO_PLOT:
         if joint in df_slice.columns:
             plt.plot(df_slice['time'], df_slice[joint], label=joint)
 
     # Optional: Add text labels if overlapping is a concern
-    plt.text(windup_time, plt.ylim()[1], 'Windup', rotation=90, color='gray', va='top')
-    plt.text(release_time, plt.ylim()[1], 'Release', rotation=90, color='red', va='top')
-    plt.text(followthrough_time, plt.ylim()[1], 'Follow-Through', rotation=90, color='blue', va='top')
+    # plt.text(windup_time, plt.ylim()[1], 'Windup', rotation=90, color='gray', va='top')
+    # plt.text(release_time, plt.ylim()[1], 'Release', rotation=90, color='red', va='top')
+    # plt.text(followthrough_time, plt.ylim()[1], 'Follow-Through', rotation=90, color='blue', va='top')
 
 
     # Add vertical lines for phases

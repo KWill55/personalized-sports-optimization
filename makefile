@@ -6,11 +6,11 @@
 # Paths (update if needed)  
 # ========================================
 
-SESSION=freethrows1
-BASE_DIR=data/$(SESSION)/02_process_data/release
+# SESSION=freethrows1
+# BASE_DIR=data/$(SESSION)/02_process_data/release
 
-RELEASE_CSV=$(BASE_DIR)/release_summary.csv
-AVERAGE_CSV=$(BASE_DIR)/average_kinematics_by_outcome.csv
+# RELEASE_CSV=$(BASE_DIR)/release_summary.csv
+# AVERAGE_CSV=$(BASE_DIR)/average_kinematics_by_outcome.csv
 
 
 # Targets
@@ -63,7 +63,7 @@ split_release: $(RELEASE_CSV)
 
 detect_phases:
 	@echo "Detecting phases in .mot files..."
-	python scripts/02_process_data/time_series/detect_phases.py
+	python scripts/02_extract_features/detect_phases.py
 
 process_time_series:
 	@echo "Processing .mot files into time series data..."
@@ -88,7 +88,7 @@ find_hsv_region:
 
 detect_metrics:
 	@echo "Detecting metrics from free throw data..."
-	python scripts/02_process_data/time_series/detect_metrics.py --make-miss --release-angle
+	python scripts/02_extract_features/ball_tracking/detect_metrics.py 
 
 
 
@@ -100,17 +100,17 @@ detect_metrics:
 
 plot_release:
 	@echo "Generating 3 kinematic plots from release_summary.csv..."
-	python scripts/03_visualize_data/release/plot_release_kinematics.py
+	python scripts/03_visualize_data/player_tracking/plot_release_kinematics.py
 
 # ===== Time Series Data Processing =====
 
-plot_kinematics_time_series: $(RELEASE_CSV)
-	@echo "Saving kinematic plots for each free throw in $(SESSION)..."
-	python scripts/03_visualize_data/time_series/plot_kinematics_time_series.py
+plot_kinematics_time_series:
+	@echo "Saving kinematic plots for each free throw..."
+	python scripts/03_visualize_data/player_tracking/plot_kinematics_time_series.py
 
-plot_velocities_time_series: $(RELEASE_CSV)
-	@echo "Saving velocity plots for each free throw in $(SESSION)..."
-	python scripts/03_visualize_data/time_series/plot_velocities_time_series.py
+plot_velocities_time_series: 
+	@echo "Saving velocity plots for each free throw..."
+	python scripts/03_visualize_data/player_tracking/plot_velocities_time_series.py
 
 # ======================================== 
 # 04_analyze_data 
@@ -120,7 +120,7 @@ plot_velocities_time_series: $(RELEASE_CSV)
 
 analyze_release: $(RELEASE_CSV)
 	@echo "Analyzing average kinematics at release by outcome..."
-	python scripts/04_analyze_data/release/analyze_release_averages.py
+	python scripts/04_analyze_data/analyze_release_averages.py
 
 # model training 
 combine_release_summaries: $(RELEASE_CSV)
@@ -133,7 +133,7 @@ prepare_release_features: $(RELEASE_CSV)
 
 train_baseline_models:
 	@echo "Training baseline models on combined release data..."
-	python scripts/04_analyze_data/release/train_baseline_models.py
+	python scripts/04_analyze_data/train_baseline_models.py
 
 # ===== Time Series Data Processing =====
 

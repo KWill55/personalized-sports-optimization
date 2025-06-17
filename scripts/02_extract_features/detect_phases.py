@@ -18,20 +18,25 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# ======================================== 
-# Parameters 
+
+# ========================================
+# Parameters
 # ========================================
 
-session = "freethrows3"  # Change this to switch sessions
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"  # Change this to switch sessions
+FPS = 30  # Frames per second for velocity calculations
 
-# ======================================== 
-# Paths 
+# ========================================
+# Paths
 # ========================================
 
 script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[2]  # Go up to project root
-mot_folder = base_dir / "data" / session / "01_record_data" / "mot_files"
-output_csv = base_dir / "data" / session / "02_process_data" / "time_series" / "freethrow_phases.csv"
+base_dir = script_dir.parents[1]
+session_dir = base_dir / "data" / ATHLETE / SESSION
+
+mot_folder = session_dir / "player_tracking_1" / "01_record_data" / "mot_files"
+output_csv = session_dir / "player_tracking_1" / "02_process_data" / "time_series" / "freethrow_phases.csv"
 
 # ======================================== 
 # Functions 
@@ -49,8 +54,8 @@ def load_mot_file(filepath):
 def compute_velocity(df, column_name, dt):
     return df[column_name].diff() / dt
 
-def detect_throw_phases(df, fps=30, threshold=10, window=3):
-    dt = 1.0 / fps
+def detect_throw_phases(df, FPS, threshold=10, window=3):
+    dt = 1.0 / FPS
     
     # Compute velocities
     df['elbow_vel'] = compute_velocity(df, 'elbow_flex_r', dt).abs()
@@ -61,16 +66,17 @@ def detect_throw_phases(df, fps=30, threshold=10, window=3):
     release_frame = df['elbow_flex_r'].idxmin()
 
     # Look backwards to detect windup start
-    start = max(0, release_frame - fps)
+    start = max(0, release_frame - FPS)
     windup_start = start  # fallback
-    for i in range(release_frame, start, -1):
-        recent_window = df['avg_arm_vel'].iloc[i - window + 1:i + 1] if i - window + 1 >= 0 else None
-        if recent_window is not None and (recent_window > threshold).all():
-            windup_start = i - window + 1
+    for i in range(start, release_frame - window + 1):
+        recent_window = df['avg_arm_vel'].iloc[i:i + window]
+        if (recent_window > threshold).all():
+            windup_start = i
             break
 
+
     # Follow-through ends 300ms after release
-    followthrough_end = min(len(df) - 1, release_frame + int(0.3 * fps))
+    followthrough_end = min(len(df) - 1, release_frame + int(0.3 * FPS))
 
     return {
         'windup_start': windup_start,
@@ -78,20 +84,24 @@ def detect_throw_phases(df, fps=30, threshold=10, window=3):
         'followthrough_end': followthrough_end
     }
 
+def extract_shot_number(filename):
+    import re
+    match = re.search(r'\d+', filename.stem)
+    return int(match.group()) if match else float('inf')
+
 # ======================================== 
 # Main Processing
 # ========================================
 
 results = []
 
-def extract_shot_number(filename):
-    import re
-    match = re.search(r'\d+', filename.stem)
-    return int(match.group()) if match else float('inf')
+print(f"Looking for .mot files in: {mot_folder}")
+print(f"Found files: {list(mot_folder.glob('*.mot'))}")
+
 
 for mot_file in sorted(mot_folder.glob("*.mot"), key=extract_shot_number):
     df = load_mot_file(mot_file)
-    phases = detect_throw_phases(df, fps=30)
+    phases = detect_throw_phases(df, FPS)
     phases['file'] = mot_file.name
     results.append(phases)
 

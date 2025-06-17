@@ -25,7 +25,8 @@ from pathlib import Path
 # Parameters 
 # ========================================
 
-session = "freethrows3"  # Change this to switch sessions
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"  # Change this to switch sessions
 
 # ======================================== 
 # Paths 
@@ -33,7 +34,9 @@ session = "freethrows3"  # Change this to switch sessions
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
-summary_path = base_dir / "data" / session / "02_process_data" /  "release" / "release_summary.csv"
+
+
+summary_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / "release" / "release_summary.csv"
 
 # ======================================== 
 # Read Release Summary CSV

@@ -11,7 +11,8 @@ mp_pose = mp.solutions.pose
 # Configuration Parameters 
 # ========================================
 
-session = "freethrows1"  # Change this to switch sessions
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"
 
 # ======================================== 
 # Paths 
@@ -19,11 +20,12 @@ session = "freethrows1"  # Change this to switch sessions
 
 
 script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[1]  # Go up to project root
+base_dir = script_dir.parents[2]  # Go up to project root
 
 # input video paths
-left_video_dir = base_dir / "data" / session / "01_record_data" / "videos" / "left"
-right_video_dir = base_dir / "data" / session / "01_record_data" / "videos" / "right" 
+
+left_video_dir = base_dir / "data" / ATHLETE / SESSION / "01_record_data" / "videos" / "left"
+right_video_dir = base_dir / "data" / ATHLETE / SESSION / "01_record_data" / "videos" / "right" 
 
 # ======================================== 
 # Functions

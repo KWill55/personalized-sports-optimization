@@ -4,6 +4,26 @@ import cv2
 from pathlib import Path
 import pickle
 
+ATHLETE = "tests" 
+SESSION = "player_tracking_tests"
+LEFT_CLIP_NAME = "freethrow1_sync_left_2d.csv"
+RIGHT_CLIP_NAME = "freethrow1_sync_right_2d.csv"
+
+# ======================================== 
+# Paths 
+# ========================================
+
+script_dir = Path(__file__).resolve().parent
+base_dir = script_dir.parents[2]  # Go up to project root
+
+# input csv paths
+left_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / "left_2d" / LEFT_CLIP_NAME
+right_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / "right_2d" / RIGHT_CLIP_NAME
+
+# output path
+output_path = base_dir / "data" / ATHLETE / SESSION / "02_process_data" / "triangulated" / LEFT_CLIP_NAME.replace("_2d", "_3d")
+output_path.parent.mkdir(parents=True, exist_ok=True)
+
 # ======== Load calibration from pickle ========
 with open("cameraIntrinsicsExtrinsics.pickle", "rb") as f:
     calib = pickle.load(f)
@@ -28,9 +48,6 @@ landmark_names = [
 ]
 
 # ======== Load 2D CSVs ========
-clip_base = "freethrow2_sync"
-left_path = Path(f"../../data/freethrows1/02_process_data/left_2d/{clip_base}_left_2d.csv")
-right_path = Path(f"../../data/freethrows1/02_process_data/right_2d/{clip_base}_right_2d.csv")
 
 df_left = pd.read_csv(left_path)
 df_right = pd.read_csv(right_path)
@@ -65,8 +82,6 @@ for name in landmark_names:
     columns += [f"{name}_x", f"{name}_y", f"{name}_z"]
 
 df_out = pd.DataFrame(triangulated_data, columns=columns)
-output_path = Path(f"../../data/freethrows1/02_process_data/triangulated/{clip_base}_3d.csv")
-output_path.parent.mkdir(parents=True, exist_ok=True)
 df_out.to_csv(output_path, index=False)
 
 print(f"Saved triangulated 3D keypoints to: {output_path}")

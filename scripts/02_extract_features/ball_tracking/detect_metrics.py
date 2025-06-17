@@ -12,10 +12,8 @@ import math
 # =========================
 
 # path parameters
-SESSION = "freethrow_tests"
-BASE_DIR = Path(__file__).resolve().parents[3]
-INPUT_FOLDER = BASE_DIR / "data" / SESSION / "angled" / "trimmed"
-OUTPUT_PATH = BASE_DIR / "data" / SESSION / "angled" / "freethrow_results.csv"
+ATHLETE = "tests"
+SESSION = "ball_tracking_tests"
 
 # hoop regions (created in create_hoop_regions.py)
 UPPER_HOOP_REGION = ((1223, 362), (1314, 402))
@@ -28,6 +26,14 @@ HSV_UPPER = np.array([5, 255, 255])
 # Display settings
 DISPLAY = True
 PRINT_TRAJECTORY = True
+
+# =========================
+# Paths 
+# =========================
+
+BASE_DIR = Path(__file__).resolve().parents[3]
+INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "angled" / "trimmed"
+OUTPUT_PATH = BASE_DIR / "data" / ATHLETE / SESSION / "angled" / "freethrow_results.csv"
 
 # =========================
 # Global Variables
@@ -134,6 +140,10 @@ def is_make(trajectory, upper_box, lower_box):
 def main():
     results = []
 
+    print(f"Looking for videos in: {INPUT_FOLDER}")
+    print(f"Found videos: {list(INPUT_FOLDER.glob('*.mp4'))}")
+
+
     # Process each video
     for video_path in sorted(INPUT_FOLDER.glob("*.mp4")):
         print(f"\nProcessing {video_path.name}")
@@ -141,6 +151,7 @@ def main():
         if not cap.isOpened():
             print(f"Failed to open video")
             continue
+        
 
         trajectory = []
         frame_idx = 0

@@ -1,59 +1,61 @@
-"""
-Title: analyze_average.py
-
-Purpose:
-    Analyzes average joint angles at the moment of release for made vs. missed free throws.
-    This script loads the release_summary.csv (generated from process_mot_to_csv.py), filters out
-    unknown outcomes, and computes average kinematic measurements grouped by outcome.
-
-Prerequisites:
-    - A CSV file named 'release_summary.csv' containing kinematic measurements and shot outcomes
-
-Output:
-    - average_kinematics_by_outcome.csv: A CSV file with mean joint angles for 'made' and 'missed' shots
-
-Usage:
-    Run this script after generating release_summary.csv. Make sure the file exists in the correct path.
-"""
-
 import pandas as pd
+import matplotlib.pyplot as plt
 from pathlib import Path
 
 # ======================================== 
 # Parameters 
 # ========================================
 
-session = "freethrows3"  # Change this to switch sessions
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"
 
 # ======================================== 
 # Paths 
 # ========================================
 
 script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[2]  # Go up to project root
-data_dir = base_dir / "data" 
-session_dir = data_dir / session
+base_dir = script_dir.parents[1]
+data_dir = base_dir / "data"
+session_dir = data_dir / ATHLETE / SESSION
 
-input_path = session_dir / "02_process_data" / "release" / "release_summary.csv"
-output_path = session_dir / "04_analyze_data" / "release" / "average_kinematics_by_outcome.csv"
+input_path = session_dir / "player_tracking_1" / "02_process_data" / "release" / "release_summary.csv"
+output_csv_path = session_dir / "player_tracking_1" / "04_analyze_data" / "release" / "average_kinematics_by_outcome.csv"
+output_plot_path = session_dir / "player_tracking_1" / "04_analyze_data" / "release" / "average_kinematics_plot.png"
 
 # ======================================== 
-# # Load release summary CSV
+# Load and Filter Data 
 # ========================================
 
 release_df = pd.read_csv(input_path)
 filtered_df = release_df[release_df['outcome'].isin(['made', 'miss'])]
 
 # ======================================== 
-# Compute Average Kinematics
+# Compute Averages 
 # ========================================
 
 numeric_cols = filtered_df.select_dtypes(include='number').columns.difference(['time'])
 average_kinematics = filtered_df.groupby('outcome')[numeric_cols].mean()
 
+# Save CSV
+average_kinematics.to_csv(output_csv_path, index=True)
+print(f"Average kinematics saved to {output_csv_path}")
+
 # ======================================== 
-# Save Results
+# Plot Bar Graph 
 # ========================================
 
-average_kinematics.to_csv(output_path, index=True)
-print(f"Average kinematics saved to {output_path}")
+# Transpose so each bar group is a joint angle
+ax = average_kinematics.T.plot(
+    kind='bar',
+    figsize=(14, 6),
+    title='Average Joint Angles at Release: Made vs Missed',
+    ylabel='Angle (degrees)',
+    xlabel='Joint',
+    rot=45,
+    colormap='Set2'
+)
+
+plt.tight_layout()
+plt.savefig(output_plot_path)
+plt.show()
+print(f"Plot saved to {output_plot_path}")

@@ -18,9 +18,10 @@ from pathlib import Path
 # Parameters
 # ========================================
 
-session = "freethrows3"  # Change this to switch sessions
-joints_to_plot = ['elbow_flex_r', 'arm_flex_r', 'hip_flexion_r']
-fps = 30
+ATHLETE = "tests"
+SESSION = "player_tracking_tests"  # Change this to switch sessions
+JOINTS_TO_PLOT = ['elbow_flex_r', 'arm_flex_r', 'hip_flexion_r', 'knee_angle_r', 'lumbar_extension']
+FPS = 30
 
 # ========================================
 # Paths
@@ -28,11 +29,11 @@ fps = 30
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]
-session_dir = base_dir / "data" / session
+session_dir = base_dir / "data" / ATHLETE / SESSION
 
-mot_folder = session_dir / "01_record_data" / "mot_files"
-phases_csv = session_dir / "02_process_data" / "time_series" / "freethrow_phases.csv"
-output_dir = session_dir / "03_visualize_data" / "time_series" / "velocity_plots"
+mot_folder = session_dir / "player_tracking_1" / "01_record_data" / "mot_files"
+phases_csv = session_dir / "player_tracking_1" / "02_process_data" / "time_series" / "freethrow_phases.csv"
+output_dir = session_dir / "player_tracking_1" / "03_visualize_data" / "time_series" / "velocity_plots"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================
@@ -71,10 +72,10 @@ for mot_file in mot_folder.glob("*.mot"):
         continue
 
     df = load_mot_file(mot_file)
-    dt = 1.0 / fps
+    dt = 1.0 / FPS
 
     # Compute velocities
-    for joint in joints_to_plot:
+    for joint in JOINTS_TO_PLOT:
         if joint in df.columns:
             df[f"{joint}_vel"] = compute_velocity(df, joint, dt)
 
@@ -93,7 +94,7 @@ for mot_file in mot_folder.glob("*.mot"):
 
     # Plot velocities
     plt.figure(figsize=(10, 6))
-    for joint in joints_to_plot:
+    for joint in JOINTS_TO_PLOT:
         vel_col = f"{joint}_vel"
         if vel_col in df_slice.columns:
             plt.plot(df_slice['time'], df_slice[vel_col], label=vel_col)
