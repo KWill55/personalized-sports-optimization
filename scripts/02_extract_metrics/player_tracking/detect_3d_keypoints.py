@@ -64,7 +64,7 @@ for idx in range(len(df_left)):
         if -1 in (lx, ly, rx, ry):
             frame_data.extend([-1, -1, -1])
             continue
-
+ 
         # Prepare homogeneous 2D points
         pt_left = np.array([[lx], [ly]], dtype=np.float64)
         pt_right = np.array([[rx], [ry]], dtype=np.float64)
