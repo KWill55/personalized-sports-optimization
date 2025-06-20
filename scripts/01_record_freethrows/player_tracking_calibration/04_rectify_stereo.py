@@ -2,8 +2,8 @@
 Stereo Camera Rectifying Script
 
 Purpose:
-    - Rectifies stereo camera images using pre-calibrated parameters to align the left and right camera feeds.
-    Useful for generating disparity maps and 3D reconstructions.
+    - Rectifies stereo camera images using pre-calibrated parameters 
+    to align the left and right camera feeds.
 
 Prerequisites:
     - Run '03_calibrate_stereo.py' to generate 'stereo_calib.npz'.
@@ -11,6 +11,9 @@ Prerequisites:
 
 Output:
     - Displays live rectified stereo image pairs with alignment lines.
+    - No files are saved; the script runs in real-time
+
+Usage:
     - Press 'q' to exit.
 """
 
@@ -19,23 +22,32 @@ import numpy as np
 from pathlib import Path
 
 # ========================================
-# Parameters
+# Configuration Constants
 # ========================================
 
 CAMERA_LEFT_INDEX = 0
 CAMERA_RIGHT_INDEX = 2
 
-SESSION = "test_own_cameras"
-BASE_DIR = Path(__file__).resolve().parents[2]
-CALIB_PATH = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images" / "stereo_calib.npz"
+ATHLETE = "Kenny"
+SESSION = "session_001"
+
+# ========================================
+# Paths and Directories
+# ========================================
+
+base_dir = Path(__file__).resolve().parents[3]
+session_dir = base_dir / "data" / ATHLETE / SESSION
+
+calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib.npz"
 
 # ========================================
 # Load stereo calibration parameters
 # ========================================
-if not CALIB_PATH.exists():
-    raise FileNotFoundError(f"[ERROR] Calibration file not found: {CALIB_PATH}")
 
-calib = np.load(CALIB_PATH)
+if not calib_path.exists():
+    raise FileNotFoundError(f"[ERROR] Calibration file not found: {calib_path}")
+
+calib = np.load(calib_path)
 mtxL, distL = calib["mtxL"], calib["distL"]
 mtxR, distR = calib["mtxR"], calib["distR"]
 R, T = calib["R"], calib["T"]
@@ -70,6 +82,7 @@ print("[INFO] Rectification maps computed. Press 'q' to quit.")
 # ========================================
 # Display loop
 # ========================================
+
 while True:
     retL, frameL = capL.read()
     retR, frameR = capR.read()
@@ -102,6 +115,7 @@ while True:
 # ========================================
 # Cleanup
 # ========================================
+
 capL.release()
 capR.release()
 cv.destroyAllWindows()

@@ -1,5 +1,5 @@
 """
-Stereo Camera Calibration Script
+Title: 03_calibrate_stereo.py Stereo Camera Calibration Script
 
 Purpose:
     Calibrates a stereo camera setup using images of a checkerboard pattern to compute 
@@ -17,8 +17,6 @@ Output:
         - mtxR, distR: Intrinsic matrix and distortion for right camera
         - R, T: Rotation and translation from left to right camera
 
-These values can be used for stereo rectification, disparity map generation,
-and 3D reconstruction using OpenCV.
 """
 
 import cv2 as cv
@@ -26,24 +24,37 @@ import numpy as np
 import glob
 from pathlib import Path
 
+# ======================================== 
+# Configuration Constants
+# ========================================
 
-# Parameters 
-CHECKERBOARD_SIZE = (4,5) # Checkerboard size (columns, rows)
+CHECKERBOARD_SIZE = (5,4) # Checkerboard size (columns, rows)
 SQUARE_SIZE = 2.5 # size of one square in centimeters 
 
-# path parameters
-BASE_DIR = Path(__file__).resolve().parents[2]
-SESSION = "test_own_cameras"
-LEFT_IMAGES_PATH = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images" / "left"
-RIGHT_IMAGES_PATH = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images" / "right"
-
-OUTPUT_DIR = BASE_DIR / "data" / SESSION / "01_record_data" / "calib_images"
-OUTPUT_FILE = OUTPUT_DIR / "stereo_calib.npz"
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ATHLETE = "Kenny"
+SESSION = "session_001"
 
 
-# Prepare 3D object points like (0,0,0), (1,0,0), ..., (8,5,0)
+# ======================================== 
+# Paths and Directories
+# ========================================
+
+base_dir = Path(__file__).resolve().parents[3]
+session_dir = base_dir / "data" / ATHLETE / SESSION
+
+left_calib_dir = session_dir / "01_videos" / "calib_images" / "left"
+right_calib_dir = session_dir / "01_videos" / "calib_images" / "right"
+
+output_dir = session_dir / "calibration" / "stereo_calibration"
+output_file = output_dir / "stereo_calib.npz"
+
+output_dir.mkdir(parents=True, exist_ok=True) 
+
+# ======================================== 
+# Prepare Object Points
+# ========================================
+
+# creates 3D grid of points corresponding to the checkerboard pattern
 objp = np.zeros((CHECKERBOARD_SIZE[0]*CHECKERBOARD_SIZE[1], 3), np.float32)
 objp[:, :2] = np.mgrid[0:CHECKERBOARD_SIZE[0], 0:CHECKERBOARD_SIZE[1]].T.reshape(-1, 2)
 objp *= SQUARE_SIZE
@@ -53,9 +64,13 @@ imgpointsL = []    # 2D points in left image
 imgpointsR = []    # 2D points in right image
 objpoints = []     # 3D points in real world
 
+# ========================================
+# Image Loading and Checkerboard Detection
+# ========================================
+
 # Load image files 
-left_images = sorted(glob.glob(str(LEFT_IMAGES_PATH / "*.jpg")))
-right_images = sorted(glob.glob(str(RIGHT_IMAGES_PATH / "*.jpg")))
+left_images = sorted(glob.glob(str(left_calib_dir / "*.jpg")))
+right_images = sorted(glob.glob(str(right_calib_dir / "*.jpg")))
 
 for left, right in zip(left_images, right_images):
     imgL = cv.imread(left)
@@ -82,6 +97,9 @@ if len(objpoints) == 0:
 else:
     print(f"[INFO] Chessboard found in pair: {left}, {right}")
 
+# ========================================
+# Camera Calibration
+# ========================================
 
 # Calibrate each camera
 retL, mtxL, distL, _, _ = cv.calibrateCamera(objpoints, imgpointsL, grayL.shape[::-1], None, None)
@@ -97,5 +115,5 @@ retval, _, _, _, _, R, T, E, F = cv.stereoCalibrate(
     grayL.shape[::-1], criteria=criteria, flags=flags)
 
 # Save for later use
-np.savez(OUTPUT_FILE, mtxL=mtxL, distL=distL, mtxR=mtxR, distR=distR, R=R, T=T)
-print(f"Stereo calibration complete and saved to {OUTPUT_FILE}")
+np.savez(output_file, mtxL=mtxL, distL=distL, mtxR=mtxR, distR=distR, R=R, T=T)
+print(f"Stereo calibration complete and saved to {output_file}")

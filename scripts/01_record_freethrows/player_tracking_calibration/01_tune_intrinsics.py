@@ -8,13 +8,17 @@ Purpose:
     before capturing calibration pairs.
 
 Prerequisites:
-    - Print and display a checkerboard pattern in view of the camera.
+    - display a checkerboard pattern in view of the camera.
     - Set the correct checkerboard dimensions (number of internal corners) and square size.
     - Adjust CAMERA_INDEX to select the camera you want to tune.
 
 Output:
     - Displays calibration results (camera matrix and distortion coefficients) every N frames.
     - No files are saved; this script is for live feedback and physical tuning only.
+
+Usage:
+    - Run the script and adjust the camera lens.
+    - Press ESC to exit the script.
 """
 
 import cv2 as cv
@@ -33,9 +37,10 @@ CALIBRATE_EVERY = 40  # frames between calibrations
 # Prepare Object Points
 # ========================================
 
-objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32)
-objp[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
-objp *= SQUARE_SIZE
+# creates 3D grid of points corresponding to the checkerboard pattern
+objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32) 
+objp[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2) 
+objp *= SQUARE_SIZE 
 
 # ======================================== 
 # Initialize Camera 
