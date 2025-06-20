@@ -4,6 +4,8 @@ __pycache__/
 *.mot
 *.mp4
 *.mov
+*.avi
+*.DS_Store
 
 # ...except this one
 !data/freethrows1/outcomes.csv

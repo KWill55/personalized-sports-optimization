@@ -16,11 +16,14 @@ RESIZE_DIMENSIONS = (640, 480)
 START_HSV_LOWER = np.array([0, 0, 200])      # white flash
 START_HSV_UPPER = np.array([180, 30, 255])
 
-STOP_HSV_LOWER = np.array([0, 100, 100])     # red flash
-STOP_HSV_UPPER = np.array([10, 255, 255])
+STOP_HSV_LOWER = np.array([0, 0, 200])      # white flash again (red no work)
+STOP_HSV_UPPER = np.array([180, 30, 255])
+
 
 BRIGHTNESS_THRESHOLD = 200
 PIXEL_RATIO_THRESHOLD = 0.02
+MIN_FRAME_SEPARATION = 30  # Minimum frames between start and stop (adjust based on your FPS and flash duration)
+
 
 # ========================================
 # Paths and Directories
@@ -72,7 +75,12 @@ def trim_video_by_flash(input_path, output_path):
             print(f"[INFO] Start flash detected at frame {frame_index}")
             start_frame = frame_index
 
-        elif start_frame is not None and stop_frame is None and is_flash_frame(hsv, STOP_HSV_LOWER, STOP_HSV_UPPER):
+        elif (
+            start_frame is not None and
+            stop_frame is None and
+            frame_index - start_frame > MIN_FRAME_SEPARATION and
+            is_flash_frame(hsv, STOP_HSV_LOWER, STOP_HSV_UPPER)
+        ):
             print(f"[INFO] Stop flash detected at frame {frame_index}")
             stop_frame = frame_index
             break
@@ -92,6 +100,7 @@ def trim_video_by_flash(input_path, output_path):
         out.write(f)
     out.release()
     print(f"[SUCCESS] Saved: {output_path.name}")
+
 
 # ========================================
 # Batch Process All Videos
