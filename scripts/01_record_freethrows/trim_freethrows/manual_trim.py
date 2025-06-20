@@ -1,3 +1,7 @@
+"""
+IMPORTANT:This script is currently broken and need to be fixed.
+"""
+
 import os
 import cv2
 import tkinter as tk
@@ -5,15 +9,34 @@ from tkinter import filedialog
 from pathlib import Path
 
 # ========================================
-# Script Configuration
+# Configuration Constants
 # ========================================
 
-SESSION_FOLDER = "/Users/kwill55/RVL/personalized-sports-optimization/data/freethrow_tests"  # Base session folder
-INPUT_SUBDIR = "angled/hevc"       # Subfolder for input videos
-OUTPUT_SUBDIR = "angled/trimmed"   # Subfolder for output trimmed videos
+ATHLETE = "Kenny"
+SESSION = "session_001"
+
 VIDEO_EXTENSIONS = ['.mp4', '.mov', '.hevc']  # Supported formats
 RESIZE_DIMENSIONS = (640, 480)     # Display size in GUI
 
+# ========================================
+# Paths and Directories
+# ========================================
+
+base_dir = Path(__file__).resolve().parents[3] # Go up to project root
+session_dir = base_dir / "data" / ATHLETE / SESSION
+
+left_calib_dir = session_dir / "calibration" / "calib_images" / "left"
+right_calib_dir = session_dir / "calibration" / "calib_images" / "right"
+
+# raw video directories 
+raw_left_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
+raw_right_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
+raw_ball_dir = session_dir / "videos" / "ball_tracking" / "raw"
+
+# processed video directories
+processed_left_dir = session_dir / "videos" / "player_tracking" / "processed" / "left"
+processed_right_dir = session_dir / "videos" / "player_tracking" / "processed" / "right"
+processed_ball_dir = session_dir / "videos" / "ball_tracking" / "processed"
 
 # ========================================
 # Video Trimmer Class
