@@ -1,0 +1,7 @@
+Structure of Data
+
+* Athlete
+    * Session
+        * data for the Session
+
+The data directory is divided by athlete. Each session of freethrows recorded by a certain athlete are located within the athelte's subfolder. 
