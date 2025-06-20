@@ -25,9 +25,10 @@ Title: sync_controller.ino
 // ================================
 
 const int IR_PIN = 11;            // pin connected to IR receiver 
-const int LED_PIN = 12;           // pin connected to LED
+const int START_LED_PIN = 12;    // pin connected to start LEDs
+const int STOP_LED_PIN = 10;     // pin connected to stop LEDs 
 
-const int FLASH_DURATION = 200;   //Flash duration in milliseconds 
+const int FLASH_DURATION = 75;   //Flash duration in milliseconds 
 
 // ================================
 // IR Receiver Setup
@@ -43,7 +44,9 @@ decode_results results;
 void setup() {
   Serial.begin(9600);
   IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
-  pinMode(LED_PIN, OUTPUT);
+  pinMode(START_LED_PIN, OUTPUT);
+  pinMode(STOP_LED_PIN, OUTPUT);
+
 }
 
 // ================================
@@ -59,8 +62,14 @@ void loop() {
 
 
     if (value == 0xC) { // corresponds to button 1 on remote 
-      flashLED();
+      flashLED(START_LED_PIN);
     }
+
+    if (value == 0x18) { //corresponds to button 2 on remote
+      flashLED(STOP_LED_PIN);
+    }
+
+
 
     IrReceiver.resume();  // Receive the next value
   }
@@ -72,9 +81,9 @@ void loop() {
 // Description: Turns LED on for FLASH_DURATION ms
 // ================================
 
-void flashLED() {
-  digitalWrite(LED_PIN, HIGH);
+void flashLED(int pin) {
+  digitalWrite(pin, HIGH);
   delay(FLASH_DURATION);  
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(pin, LOW);
   delay(FLASH_DURATION);
 }
