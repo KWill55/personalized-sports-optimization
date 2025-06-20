@@ -15,6 +15,7 @@ Usage:
 Important Notes:
     - For now this script only records player biomechanics data, not ball tracking.
     Ball tracking will be done manually for now. 
+    - i actually havne't gotten this to work yet
 """
 
 import cv2 as cv
@@ -47,8 +48,8 @@ session_dir = base_dir / "data" / ATHLETE / SESSION
 calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib.npz"
 
 # Output directories for recorded throws
-left_videos_dir = session_dir / "videos" / "left"
-right_videos_dir = session_dir / "videos" / "right"
+left_videos_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
+right_videos_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
 
 # Create directories if they don't exist
 left_videos_dir.mkdir(parents=True, exist_ok=True)
@@ -98,6 +99,18 @@ throw_index = 1
 frame_count = CLIP_LENGTH * FPS
 
 while True:
+    # Always show live preview
+    retL, frameL = capL.read()
+    retR, frameR = capR.read()
+    if not retL or not retR:
+        print("Camera read error.")
+        break
+
+    previewL = cv.remap(frameL, map1L, map2L, cv.INTER_LINEAR)
+    previewR = cv.remap(frameR, map1R, map2R, cv.INTER_LINEAR)
+    combined_preview = np.hstack((previewL, previewR))
+    cv.imshow("Live Preview (press 's' to start recording)", combined_preview)
+
     key = cv.waitKey(1) & 0xFF
     if key == ord('s'):
         print(f"🎬 Recording throw {throw_index}...")

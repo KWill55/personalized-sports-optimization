@@ -13,7 +13,12 @@ Prerequisites:
 Output:
     - Saves images into calib_images/left and calib_images/right directories.
     - Each pair of images is saved with a sequential filename format (left_00.jpg, right_00.jpg, etc.).
-"""
+
+Usage:
+    - Press SPACE to capture a pair of images.
+    - Press ESC to exit the script.
+    
+    """
 
 import cv2 as cv
 import os
@@ -25,7 +30,7 @@ from pathlib import Path
 # ========================================
 
 CAMERA_LEFT_INDEX = 0
-CAMERA_RIGHT_INDEX = 2 
+CAMERA_RIGHT_INDEX = 1
 
 # path parameters
 ATHLETE = "Kenny" 
@@ -37,8 +42,8 @@ SESSION = "session_001"
 
 base_dir = Path(__file__).resolve().parents[3] # Go up to project root
 session_dir = base_dir / "data" / ATHLETE / SESSION
-left_calib_dir = session_dir / "videos" / "calib_images" / "left"
-right_calib_dir = session_dir / "videos" / "calib_images" / "right"
+left_calib_dir = session_dir / "calibration" / "calib_images" / "left"
+right_calib_dir = session_dir / "calibration" / "calib_images" / "right"
 
 os.makedirs(right_calib_dir, exist_ok=True)
 os.makedirs(left_calib_dir, exist_ok=True)

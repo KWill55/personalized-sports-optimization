@@ -26,7 +26,7 @@ from pathlib import Path
 # ========================================
 
 CAMERA_LEFT_INDEX = 0
-CAMERA_RIGHT_INDEX = 2
+CAMERA_RIGHT_INDEX = 1
 
 ATHLETE = "Kenny"
 SESSION = "session_001"

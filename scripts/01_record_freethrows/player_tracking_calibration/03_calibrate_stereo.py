@@ -42,8 +42,8 @@ SESSION = "session_001"
 base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 
-left_calib_dir = session_dir / "01_videos" / "calib_images" / "left"
-right_calib_dir = session_dir / "01_videos" / "calib_images" / "right"
+left_calib_dir = session_dir / "calibration" / "calib_images" / "left"
+right_calib_dir = session_dir / "calibration" / "calib_images" / "right"
 
 output_dir = session_dir / "calibration" / "stereo_calibration"
 output_file = output_dir / "stereo_calib.npz"
