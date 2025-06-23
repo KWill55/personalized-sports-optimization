@@ -7,10 +7,10 @@ from pathlib import Path
 # Config
 # ========================================
 
-ATHLETE = "tests"
-SESSION = "player_tracking_tests"
-CLIP_NAME = "freethrow1_sync"  # <<< change this to match your video name
-VIEW = "right"  # or "right"
+ATHLETE = "Kenny"
+SESSION = "session_001"
+CLIP_NAME = "freethrow1_sync" 
+VIEW = "right" 
 
 frame_to_draw = 100  # <<< change this to the frame you want to display
 
@@ -20,12 +20,16 @@ frame_to_draw = 100  # <<< change this to the frame you want to display
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]
-video_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "01_record_data" / "videos" / VIEW / f"{CLIP_NAME}.mp4"
-csv_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / f"{VIEW}_2d" / f"{CLIP_NAME}_{VIEW}_2d.csv"
+session_dir = base_dir / ATHLETE / SESSION
+
+csv_path = session_dir / "extracted_metrics" / "player_tracking_metrics" / "raw_metrics" / f"{CLIP_NAME}_{VIEW}_2d.csv"
+video_path = session_dir / "videos" / "player_tracking" / "processed" / VIEW / f"{CLIP_NAME}.mp4"
+
 
 # ========================================
 # MediaPipe COCO-style landmark connections
 # ========================================
+
 POSE_CONNECTIONS = [
     (11, 13), (13, 15),  # left arm
     (12, 14), (14, 16),  # right arm
@@ -79,6 +83,7 @@ for a, b in POSE_CONNECTIONS:
 # ========================================
 # Show image
 # ========================================
+
 cv2.imshow(f"{CLIP_NAME} - Frame {frame_to_draw}", frame)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

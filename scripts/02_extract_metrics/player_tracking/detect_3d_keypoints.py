@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import cv2
 from pathlib import Path
-import pickle
 
 ATHLETE = "tests" 
 SESSION = "player_tracking_tests"
@@ -15,27 +14,38 @@ RIGHT_CLIP_NAME = "freethrow1_sync_right_2d.csv"
 
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
+session_dir = base_dir / ATHLETE / SESSION 
 
-# input csv paths
-left_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / "left_2d" / LEFT_CLIP_NAME
-right_path = base_dir / "data" / ATHLETE / SESSION / "player_tracking_1" / "02_process_data" / "right_2d" / RIGHT_CLIP_NAME
+#Calibration path
+calib_path = session_dir / "calibration" / "stereo_calib.npz"
+
+# input video csv paths
+left_path = session_dir / "videos" / "player_tracking" / "processed" / "left" / LEFT_CLIP_NAME
+right_path = session_dir / "videos" / "player_tracking" / "processed" / "right" / RIGHT_CLIP_NAME
 
 # output path
-output_path = base_dir / "data" / ATHLETE / SESSION / "02_process_data" / "triangulated" / LEFT_CLIP_NAME.replace("_2d", "_3d")
+output_path = session_dir / "02_process_data" / "triangulated" / LEFT_CLIP_NAME.replace("_2d", "_3d")
 output_path.parent.mkdir(parents=True, exist_ok=True)
 
-# ======== Load calibration from pickle ========
-with open("cameraIntrinsicsExtrinsics.pickle", "rb") as f:
-    calib = pickle.load(f)
+# ======================================== 
+# Load Calibration Parameters
+# ========================================
 
-K = calib["intrinsicMat"]
-R = calib["rotation"]
-T = calib["translation"]
+calib = np.load(calib_path)
 
-P1 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
-P2 = K @ np.hstack((R, T))
+K1 = calib["mtxL"]
+D1 = calib["distL"]
+K2 = calib["mtxR"]
+D2 = calib["distR"]
+R = calib["R"]
+T = calib["T"]
 
-# ======== MediaPipe landmark names (0–32) ========
+P1 = K1 @ np.hstack((np.eye(3), np.zeros((3, 1))))
+P2 = K2 @ np.hstack((R, T))
+
+# ========================================
+# MediaPipe landmark names
+# ========================================
 landmark_names = [
     "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer",
     "left_ear", "right_ear", "mouth_left", "mouth_right",
@@ -47,36 +57,47 @@ landmark_names = [
     "left_foot_index", "right_foot_index"
 ]
 
-# ======== Load 2D CSVs ========
+# ========================================
+# Load 2D keypoint data
+# ========================================
 
 df_left = pd.read_csv(left_path)
 df_right = pd.read_csv(right_path)
 
-# ======== Triangulation ========
+# ========================================
+# Triangulation
+# ========================================
 triangulated_data = []
 
 for idx in range(len(df_left)):
     frame_data = [idx]
-    for i, name in enumerate(landmark_names):
-        lx, ly = df_left.iloc[idx][f"{name}_x"], df_left.iloc[idx][f"{name}_y"]
-        rx, ry = df_right.iloc[idx][f"{name}_x"], df_right.iloc[idx][f"{name}_y"]
+    for name in landmark_names:
+        lx, ly = df_left.loc[idx, f"{name}_x"], df_left.loc[idx, f"{name}_y"]
+        rx, ry = df_right.loc[idx, f"{name}_x"], df_right.loc[idx, f"{name}_y"]
 
         if -1 in (lx, ly, rx, ry):
             frame_data.extend([-1, -1, -1])
             continue
- 
-        # Prepare homogeneous 2D points
-        pt_left = np.array([[lx], [ly]], dtype=np.float64)
-        pt_right = np.array([[rx], [ry]], dtype=np.float64)
 
-        point_4d = cv2.triangulatePoints(P1, P2, pt_left, pt_right)
-        point_3d = point_4d[:3] / point_4d[3]  # Convert from homogeneous
+        # Convert to shape (1,1,2) for undistortPoints
+        pt_left = np.array([[[lx, ly]]], dtype=np.float32)
+        pt_right = np.array([[[rx, ry]]], dtype=np.float32)
+
+        # Undistort and normalize
+        undist_left = cv2.undistortPoints(pt_left, K1, D1, P=K1).reshape(2, 1)
+        undist_right = cv2.undistortPoints(pt_right, K2, D2, P=K2).reshape(2, 1)
+
+        # Triangulate
+        point_4d = cv2.triangulatePoints(P1, P2, undist_left, undist_right)
+        point_3d = point_4d[:3] / point_4d[3]
 
         frame_data.extend(point_3d.flatten())
 
     triangulated_data.append(frame_data)
 
-# ======== Save as CSV ========
+# ========================================
+# Save 3D output
+# ========================================
 columns = ["frame"]
 for name in landmark_names:
     columns += [f"{name}_x", f"{name}_y", f"{name}_z"]
