@@ -99,3 +99,10 @@ Use the extracted features to train machine learning models that predict shot ou
 - Incorporate wrist, hand, and ball spin tracking
 - Add Jetson Nano-based edge AI deployment
 - Train reinforcement learning model to suggest form corrections
+
+
+
+## MISC
+
+git push origin main
+git push lab main
