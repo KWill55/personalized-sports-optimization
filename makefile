@@ -5,43 +5,80 @@
 # Targets
 all: process split plot analyze
 
+
 # ======================================== 
-# 01_record_freethrows
+# Phase 1: Recording Freethrows 
 # ========================================
 
-identify_cameras:
-	@echo "TODO..."
-	python scripts/01_record_data/identify_cameras.py
+# ===== paths and directories =====
+record_dir := scripts/01_record_freethrows
+calibrate_dir := $(record_dir)/player_tracking_calibration
+trim_dir := $(record_dir)/trim_freethrows
+helpers_dir := $(record_dir)/helpers
 
-#Step 1: Tune the physical intrinsics
-tune_intrinsics:
+# ===== helpers =====
+
+identify_cameras: ## Camera identifiication gui
+	@echo "opening gui to identify camera indicies"
+	python $(helpers_dir)/identify_cameras.py
+
+# ===== Calibration =====
+
+tune_intrinsics: # Step 1: Tune the physical intrinsics
 	@echo "Opening GUI for intrinsic tuning..."
-	python scripts/01_record_data/01_tune_intrinsics.py
+	python $(calibrate_dir)/01_tune_intrinsics.py
 
 #Step 2: Capture calibration pairs
 capture_calibration_pairs:
 	@echo "Capturing image pairs for calibration..."
-	python scripts/01_record_data/02_capture_calibration_pairs.py
+	python $(calibrate_dir)/02_capture_calibration_pairs.py
 
 #Step 3: Calibrate stereo cameras
 calibrate_stereo:
 	@echo "Calibrating cameras using captured pairs..."
-	python scripts/01_record_data/03_calibrate_stereo.py
+	python $(calibrate_dir)/03_calibrate_stereo.py
 
 #Step 4: Rectify stereo images
 rectify_stereo:
 	@echo "Rectifying stereo images..."
-	python scripts/01_record_data/04_rectify_stereo.py
+	python $(calibrate_dir)/04_rectify_stereo.py
+
+
+# ===== Trimming freethrows =====
+
+# automatic trimming via flashes
+auto_trim_by_flash:
+	@echo "Trimming video clips via flash..."
+	python $(trim_dir)/auto_trim_by_flash.py
+
+# ===== Recording Freethrows =====
+
+record_freethrows:
+	@echo "Recording a freethrow..."
+	python $(record_dir)/record_freethrows.py
+
 
 # ======================================== 
-# 02_process_data 
+# Phase 2: 02_process_data 
 # ========================================
 
-# ===== Release Data Processing =====
+# ===== paths and directories =====
+extract_metrics_dir := scripts/02_extract_metrics
+visualize_dir 
+helpers_dir := $(extract_metrics_dir)/helpers
 
+# ===== Helpers =====
+
+# TODO description here 
 process_release: 
 	@echo "Processing .mot files into release_summary.csv..."
 	python scripts/02_process_data/release/process_release.py
+
+# ===== Extract Metrics for Player Tracking =====
+
+# ===== Extract Metrics for Ball Tracking =====
+
+# ===== Combine Extracted Metrics =====
 
 #TODO make this script usable for both release and time series data
 split_release: $(RELEASE_CSV)
@@ -82,7 +119,7 @@ detect_metrics:
 
 
 # ======================================== 
-# 03_visualize_data 
+# Phase 3: 03_analyze_data
 # ========================================
 
 # ===== Release Data Processing =====
@@ -100,10 +137,6 @@ plot_kinematics_time_series:
 plot_velocities_time_series: 
 	@echo "Saving velocity plots for each free throw..."
 	python scripts/03_visualize_data/player_tracking/plot_velocities_time_series.py
-
-# ======================================== 
-# 04_analyze_data 
-# ========================================
 
 # ===== Release Data Processing =====
 
