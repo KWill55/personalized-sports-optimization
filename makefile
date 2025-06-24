@@ -2,22 +2,11 @@
 # Purpose:
 # Automate data processing, plotting, and analysis for basketball free throw kinematics
 
-# ======================================== 
-# Paths (update if needed)  
-# ========================================
-
-# SESSION=freethrows1
-# BASE_DIR=data/$(SESSION)/02_process_data/release
-
-# RELEASE_CSV=$(BASE_DIR)/release_summary.csv
-# AVERAGE_CSV=$(BASE_DIR)/average_kinematics_by_outcome.csv
-
-
 # Targets
 all: process split plot analyze
 
 # ======================================== 
-# 01_record_data 
+# 01_record_freethrows
 # ========================================
 
 identify_cameras:

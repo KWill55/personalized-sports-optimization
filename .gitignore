@@ -6,8 +6,4 @@ __pycache__/
 *.mov
 *.avi
 *.DS_Store
-
-# ...except this one
-!data/freethrows1/outcomes.csv
-!data/freethrows2/outcomes.csv
-!data/freethrows3/outcomes.csv
+*.npz

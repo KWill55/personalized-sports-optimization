@@ -1,3 +1,5 @@
+
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -6,21 +8,23 @@ from pathlib import Path
 # Parameters 
 # ========================================
 
-ATHLETE = "tests"
-SESSION = "player_tracking_tests"
+ATHLETE = "Kenny"
+SESSION = "session_001"
 
-# ======================================== 
-# Paths 
+# ========================================
+# Paths
 # ========================================
 
 script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[1]
-data_dir = base_dir / "data"
-session_dir = data_dir / ATHLETE / SESSION
+base_dir = script_dir.parents[2]
+session_dir = base_dir / "data" / ATHLETE / SESSION
+player_tracking_metrics_dir = session_dir / "extracted_metrics" / "player_tracking_metrics"
 
-input_path = session_dir / "player_tracking_1" / "02_process_data" / "release" / "release_summary.csv"
-output_csv_path = session_dir / "player_tracking_1" / "04_analyze_data" / "release" / "average_kinematics_by_outcome.csv"
-output_plot_path = session_dir / "player_tracking_1" / "04_analyze_data" / "release" / "average_kinematics_plot.png"
+#inputs 
+input_path = player_tracking_metrics_dir / "release" / "release_summary.csv"
+
+output_csv_path = session_dir / "analysis" / "average_kinematics_by_outcome.csv"
+output_plot_path = session_dir / "analysis" / "average_kinematics_plot.png"
 
 # ======================================== 
 # Load and Filter Data 
