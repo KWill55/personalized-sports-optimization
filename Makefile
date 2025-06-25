@@ -10,11 +10,13 @@ all: process split plot analyze
 # Phase 1: Recording Freethrows 
 # ========================================
 
+
 # ===== paths and directories =====
 record_dir := scripts/01_record_freethrows
 calibrate_dir := $(record_dir)/player_tracking_calibration
 trim_dir := $(record_dir)/trim_freethrows
 helpers_dir := $(record_dir)/helpers
+
 
 # ===== helpers =====
 
@@ -22,32 +24,39 @@ identify_cameras: ## Camera identifiication gui
 	@echo "opening gui to identify camera indicies"
 	python $(helpers_dir)/identify_cameras.py
 
+## ------------------------------
 # ===== Calibration =====
+## ------------------------------
 
-tune_intrinsics: # Step 1: Tune the physical intrinsics
+calibration-header: ## 🔧 Calibration
+	@:
+
+
+tune_intrinsics: ## Step 1: Tune the physical intrinsics
 	@echo "Opening GUI for intrinsic tuning..."
 	python $(calibrate_dir)/01_tune_intrinsics.py
 
-#Step 2: Capture calibration pairs
-capture_calibration_pairs:
+
+capture_calibration_pairs: ## Step 2: Capture calibration pairs
 	@echo "Capturing image pairs for calibration..."
 	python $(calibrate_dir)/02_capture_calibration_pairs.py
 
-#Step 3: Calibrate stereo cameras
-calibrate_stereo:
+
+calibrate_stereo: ## Step 3: Calibrate stereo cameras
 	@echo "Calibrating cameras using captured pairs..."
 	python $(calibrate_dir)/03_calibrate_stereo.py
 
-#Step 4: Rectify stereo images
-rectify_stereo:
+
+rectify_stereo: ## Step 4: Rectify stereo images
 	@echo "Rectifying stereo images..."
 	python $(calibrate_dir)/04_rectify_stereo.py
 
 
+## ------------------------------
 # ===== Trimming freethrows =====
+## ------------------------------
 
-# automatic trimming via flashes
-auto_trim_by_flash:
+auto_trim_by_flash: ## automatic trimming via flashes
 	@echo "Trimming video clips via flash..."
 	python $(trim_dir)/auto_trim_by_flash.py
 
@@ -59,18 +68,24 @@ record_freethrows:
 
 
 # ======================================== 
-# Phase 2: 02_process_data 
+# Phase 2: Extract player and ball metrics
 # ========================================
 
+
 # ===== paths and directories =====
-extract_metrics_dir := scripts/02_extract_metrics
-visualize_dir 
+extract_dir := scripts/02_extract_metrics
+ball_dir := extract_dir
+
+player_dir := extract_dir / player_tracking
+combine_dir := extract_dir / combine_extracted_metrics
+
+
 helpers_dir := $(extract_metrics_dir)/helpers
+
 
 # ===== Helpers =====
 
-# TODO description here 
-process_release: 
+process_release: ## 
 	@echo "Processing .mot files into release_summary.csv..."
 	python scripts/02_process_data/release/process_release.py
 
@@ -160,6 +175,23 @@ train_baseline_models:
 # ===== Time Series Data Processing =====
 
 # TODO not implemented yet
+
+
+# ======================================== 
+# help
+# ========================================
+
+.PHONY: help
+
+help:
+	@echo ""
+	@echo "🏀 \033[1mMakefile Command Reference\033[0m"
+	@echo "--------------------------------------------"
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?##' Makefile | sort | \
+	awk -F: '{ if ($$1 ~ /-header$$/) { printf "\n\033[1m%s\033[0m\n", substr($$2, index($$2,$$3)) } else { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } }'
+	@echo ""
+
+
 
 # ======================================== 
 # clean 
