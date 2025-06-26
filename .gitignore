@@ -1,6 +1,7 @@
 __pycache__/
 *.csv
 *.png
+*.jpg
 *.mot
 *.mp4
 *.mov

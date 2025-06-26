@@ -50,23 +50,15 @@ helpers_dir := $(record_dir)/helpers
 # Player calibration
 # ----------------------------------------
 calibrate-header: ## 🔧 Calibrate Camera System
-	@:
+	@: 
 
-tune_intrinsics: ## Step 1 - Tune the physical intrinsics
-	@echo "Opening GUI for intrinsic tuning..."
-	python $(calibrate_dir)/01_tune_intrinsics.py
-
-capture_calibration_pairs: ## Step 2 - Capture calibration pairs
+capture_cb_pairs: ## Step 1 - Capture calibration pairs
 	@echo "Capturing image pairs for calibration..."
-	python $(calibrate_dir)/02_capture_calibration_pairs.py
+	python $(calibrate_dir)/capture_cb_pairs.py
 
-calibrate_stereo: ## Step 3 - Calibrate stereo cameras
+calibrate_stereo: ## Step 2 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
-	python $(calibrate_dir)/03_calibrate_stereo.py
-
-rectify_stereo: ## Step 4 - Rectify stereo images
-	@echo "Rectifying stereo images..."
-	python $(calibrate_dir)/04_rectify_stereo.py
+	python $(calibrate_dir)/calibrate_stereo.py
 
 # ----------------------------------------
 # Trim freethrows
@@ -113,6 +105,11 @@ inspect_npz: ## Inspect .npz file contents
 test_fps: ## Test FPS extraction
 	@echo "Testing FPS script..."
 	python $(helpers_dir)/test_fps.py
+
+test_dual_cameras: ## open 2 camera streams
+	@echo "Opening 2 camera streams..."
+	python $(helpers_dir)/test_dual_cameras.py
+
 
 # ======================================== 
 # Phase 2: Extract player and ball metrics

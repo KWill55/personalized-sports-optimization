@@ -1,22 +1,20 @@
 """
-Title: 03_calibrate_stereo.py Stereo Camera Calibration Script
+Title: calibrate_stereo.py
 
 Purpose:
-    Calibrates a stereo camera setup using images of a checkerboard pattern to compute 
-    intrinsic parameters (camera matrix, distortion) for each camera and extrinsic 
-    parameters (rotation and translation between them).
+    Perform stereo camera calibration using checkerboard image pairs,
+    and generate the projection matrices needed for 3D reconstruction.
+
+Output: 
+    - Intrinsic parameters (K1, K2): focal lengths, principal points
+    - Extrinsic parameters (R, T): rotation and translation between cameras
+    - Distortion coefficients (dist1, dist2): lens distortion per camera
+    - Projection matrices (P1, P2): used for triangulating 3D points
 
 Prerequisites:
-    - Use 'captureImagePairs.py' to save matching left/right images of a checkerboard.
+    - Use 'capture_cb_pairs' to save matching left/right images of a checkerboard.
     - Ensure the checkerboard size and square dimensions are set correctly.
     - Ensure image pair directories match LEFT_IMAGES_PATH and RIGHT_IMAGES_PATH.
-
-Output:
-    - Saves stereo calibration parameters to 'stereo_calib.npz':
-        - mtxL, distL: Intrinsic matrix and distortion for left camera
-        - mtxR, distR: Intrinsic matrix and distortion for right camera
-        - R, T: Rotation and translation from left to right camera
-
 """
 
 import cv2 as cv
@@ -105,15 +103,46 @@ else:
 retL, mtxL, distL, _, _ = cv.calibrateCamera(objpoints, imgpointsL, grayL.shape[::-1], None, None)
 retR, mtxR, distR, _, _ = cv.calibrateCamera(objpoints, imgpointsR, grayR.shape[::-1], None, None)
 
-# Stereo calibration
+# ========================================
+# Stereo Calibration
+# ========================================
+
 flags = cv.CALIB_FIX_INTRINSIC
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 100, 1e-5)
 
 retval, _, _, _, _, R, T, E, F = cv.stereoCalibrate(
     objpoints, imgpointsL, imgpointsR,
     mtxL, distL, mtxR, distR,
-    grayL.shape[::-1], criteria=criteria, flags=flags)
+    grayL.shape[::-1], criteria=criteria, flags=flags
+)
 
-# Save for later use
-np.savez(output_file, mtxL=mtxL, distL=distL, mtxR=mtxR, distR=distR, R=R, T=T)
-print(f"Stereo calibration complete and saved to {output_file}")
+# ========================================
+# Build Projection Matrices
+# ========================================
+
+P1 = mtxL @ np.hstack((np.eye(3), np.zeros((3, 1))))  # P1 = K1 [I | 0]
+P2 = mtxR @ np.hstack((R, T))                         # P2 = K2 [R | T]
+
+# ========================================
+# Save All Parameters
+# ========================================
+
+np.savez(
+    output_file,
+    K1=mtxL, dist1=distL,
+    K2=mtxR, dist2=distR,
+    R=R, T=T,
+    P1=P1, P2=P2,
+    E=E, F=F
+)
+
+print("[INFO] Stereo calibration complete.")
+print(f"[INFO] Saved to: {output_file}")
+print("[INFO] Saved parameters:")
+print(" - K1, K2 (intrinsics)")
+print(" - dist1, dist2 (distortion coefficients)")
+print(" - R, T (extrinsics)")
+print(" - P1, P2 (projection matrices)")
+print(" - E, F (essential & fundamental matrices)")
+print("[INFO] RMS re-projection error from stereo calibration:", retval)
+

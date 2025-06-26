@@ -1,23 +1,19 @@
 """
-Title: 02_capture_calibration_pairs.py: Stereo Image Pair Capture Script
+Title: capture_cb_pairs.py
 
 Purpose:
     Captures synchronized image pairs from two USB webcams for calibration purposes.
-    Allows the user to save pairs of images by pressing SPACE, and exit the script with ESC.
 
 Prerequisites:
-    - Two USB webcams connected to the system.
-    - Ensure the cameras are positioned to capture the same scene.
-    - Adjust camera settings (focus, zoom) as needed before starting the script. (tune_intrinsics.py)
+    - Two USB webcams pointed at checkerboard
 
 Output:
-    - Saves images into calib_images/left and calib_images/right directories.
+    - Saves images to left_calib_dir and right_calib_dir 
     - Each pair of images is saved with a sequential filename format (left_00.jpg, right_00.jpg, etc.).
 
 Usage:
     - Press SPACE to capture a pair of images.
     - Press ESC to exit the script.
-    
     """
 
 import cv2 as cv
