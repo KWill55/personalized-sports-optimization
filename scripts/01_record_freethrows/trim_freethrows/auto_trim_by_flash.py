@@ -7,7 +7,7 @@ from pathlib import Path
 # Configuration Constants
 # ========================================
 
-ATHLETE = "Kenny"
+ATHLETE = "kenny"
 SESSION = "session_001"
 
 VIDEO_EXTENSIONS = ['.mp4', '.mov', '.hevc']
@@ -117,9 +117,15 @@ for set_info in video_sets:
     output_dir = set_info["output"]
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    camera_name = input_dir.parts[-1]  # Get folder name like "left", "right", or "raw"
+
     for filename in os.listdir(input_dir):
         if Path(filename).suffix.lower() not in VIDEO_EXTENSIONS:
             continue
+
         input_path = input_dir / filename
         output_path = output_dir / filename.replace(".mp4", "_trimmed.mp4").replace(".mov", "_trimmed.mp4")
+
+        print(f"\n📹 Processing {camera_name.upper()} - {filename}")
         trim_video_by_flash(input_path, output_path)
+

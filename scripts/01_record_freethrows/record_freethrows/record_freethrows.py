@@ -1,156 +1,147 @@
 """
-Title: 05_record_freethrows 
-
-Purpose:
-    - Records stereo video pairs for each basketball free throw,
-    saving each throw as a separate video file using stereo calibration parameters.
-
-Prerequisites:
-    - Ensure stereo cameras are calibrated and the calibration file 'stereo_calib.npz' exists. (use 03_calibrate_stereo.py)
-
-Usage:
-    - Press 's' to start recording a throw (3 seconds by default)
-    - Press 'q' to quit at any time
-
-Important Notes:
-    - For now this script only records player biomechanics data, not ball tracking.
-    Ball tracking will be done manually for now. 
-    - i actually havne't gotten this to work yet
+TODO
+- visuals saying if im recording or stopped 
+- say what free throw im on
+- use tkinter or something to organize the free throws and buttons 
+- make sure i can use a flash to trim my freethrows 
+- check fps of all the freethrows
+- check that i can synchronize them 
+- my external webcam didn't detect the flashes... more leds?
 """
 
 import cv2 as cv
 import numpy as np
-import os
 from pathlib import Path
+from datetime import datetime
 
-# ========================================
-# Configuration Constants
-# ========================================
-
+# =========================
+# Config
+# =========================
 CAMERA_LEFT_INDEX = 0
 CAMERA_RIGHT_INDEX = 1
+CAMERA_THIRD_INDEX = 2
 
-ATHLETE = "Kenny"
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
+ATHLETE = "kenny"
 SESSION = "session_001"
 
-# === Settings ===
-CLIP_LENGTH = 3  # seconds
-FPS = 30
-
-# ========================================
-# Paths and Directories
-# ========================================
-
-base_dir = Path(__file__).resolve().parents[2]
+# =========================
+# Paths
+# =========================
+base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 
-# Calibration file
-calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib.npz"
+video_dirs = {
+    "left": session_dir / "videos" / "player_tracking" / "raw" / "left",
+    "right": session_dir / "videos" / "player_tracking" / "raw" / "right",
+    "third": session_dir / "videos" / "ball_tracking" / "raw"
+}
 
-# Output directories for recorded throws
-left_videos_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
-right_videos_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
+for path in video_dirs.values():
+    path.mkdir(parents=True, exist_ok=True)
 
-# Create directories if they don't exist
-left_videos_dir.mkdir(parents=True, exist_ok=True)
-right_videos_dir.mkdir(parents=True, exist_ok=True)
+# =========================
+# Open Cameras
+# =========================
+caps = {
+    "left": cv.VideoCapture(CAMERA_LEFT_INDEX),
+    "right": cv.VideoCapture(CAMERA_RIGHT_INDEX),
+    "third": cv.VideoCapture(CAMERA_THIRD_INDEX)
+}
 
+# Set resolution (optional)
+for cap in caps.values():
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-# ========================================
-# Load Calibration Parameters 
-# ========================================
+# Check if opened and get actual FPS
+actual_fps = {}
+for name, cap in caps.items():
+    if not cap.isOpened():
+        print(f"❌ Could not open {name} camera.")
+        exit()
+    fps = cap.get(cv.CAP_PROP_FPS)
+    actual_fps[name] = fps if fps > 1 else 30
+    print(f"{name} camera FPS: {actual_fps[name]}")
 
-calib = np.load(calib_path)
-mtxL, distL = calib["mtxL"], calib["distL"]
-mtxR, distR = calib["mtxR"], calib["distR"]
-R, T = calib["R"], calib["T"]
+print("✅ All cameras opened. Press 's' to start/stop recording. Press 'q' to quit.")
 
-# ========================================
-# Open Camera Streams
-# ========================================
+# =========================
+# Recording Loop
+# =========================
+recording = False
+writers = {}
 
-capL = cv.VideoCapture(CAMERA_LEFT_INDEX)
-capR = cv.VideoCapture(CAMERA_RIGHT_INDEX)
-
-retL, frameL = capL.read()
-retR, frameR = capR.read()
-if not retL or not retR:
-    raise RuntimeError("Could not read from both cameras.")
-
-h, w = frameL.shape[:2]
-image_size = (w, h)
-
-print("Press 's' to record a throw. Press 'q' to quit.")
-
-# ========================================
-# Stereo Rectification
-# ========================================
-
-# === Rectification Maps ===
-R1, R2, P1, P2, Q, _, _ = cv.stereoRectify(mtxL, distL, mtxR, distR, image_size, R, T, flags=cv.CALIB_ZERO_DISPARITY)
-map1L, map2L = cv.initUndistortRectifyMap(mtxL, distL, R1, P1, image_size, cv.CV_16SC2)
-map1R, map2R = cv.initUndistortRectifyMap(mtxR, distR, R2, P2, image_size, cv.CV_16SC2)
-
-# ========================================
-# Main Recording Loop
-# ========================================
-
-throw_index = 1
-frame_count = CLIP_LENGTH * FPS
+# Window layout
+window_positions = {
+    "left": (0, 0),
+    "right": (FRAME_WIDTH + 20, 0),
+    "third": (0, FRAME_HEIGHT + 60)
+}
 
 while True:
-    # Always show live preview
-    retL, frameL = capL.read()
-    retR, frameR = capR.read()
-    if not retL or not retR:
-        print("Camera read error.")
-        break
+    frames = {}
 
-    previewL = cv.remap(frameL, map1L, map2L, cv.INTER_LINEAR)
-    previewR = cv.remap(frameR, map1R, map2R, cv.INTER_LINEAR)
-    combined_preview = np.hstack((previewL, previewR))
-    cv.imshow("Live Preview (press 's' to start recording)", combined_preview)
+    for name, cap in caps.items():
+        ret, frame = cap.read()
+        if not ret:
+            print(f"⚠️ Failed to read from {name}")
+            continue
+
+        # Ensure consistent frame size
+        if frame.shape[1] != FRAME_WIDTH or frame.shape[0] != FRAME_HEIGHT:
+            frame = cv.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT))
+
+        frames[name] = frame
+        cv.imshow(name, frame)
+
+        if name in window_positions:
+            x, y = window_positions[name]
+            cv.moveWindow(name, x, y)
 
     key = cv.waitKey(1) & 0xFF
+
     if key == ord('s'):
-        print(f"🎬 Recording throw {throw_index}...")
+        recording = not recording
+        if recording:
+            def get_next_freethrow_number():
+                max_count = 0
+                for path in video_dirs.values():
+                    count = len(list(path.glob("freethrow*.mp4")))
+                    max_count = max(max_count, count)
+                return max_count + 1
 
-        fourcc = cv.VideoWriter_fourcc(*'XVID')
-        outL = cv.VideoWriter(str(left_videos_dir / f"throw_{throw_index:03}.avi"), fourcc, FPS, image_size)
-        outR = cv.VideoWriter(str(right_videos_dir / f"throw_{throw_index:03}.avi"), fourcc, FPS, image_size)
+            throw_num = get_next_freethrow_number()
+            print(f"🔴 Started recording freethrow{throw_num}")
 
-        for _ in range(frame_count):
-            retL, frameL = capL.read()
-            retR, frameR = capR.read()
-            if not retL or not retR:
-                print("Camera read error.")
-                break
-
-            rectL = cv.remap(frameL, map1L, map2L, cv.INTER_LINEAR)
-            rectR = cv.remap(frameR, map1R, map2R, cv.INTER_LINEAR)
-
-            outL.write(rectL)
-            outR.write(rectR)
-
-            combined = np.hstack((rectL, rectR))
-            cv.imshow("Recording (press 'q' to stop)", combined)
-
-            if cv.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        outL.release()
-        outR.release()
-        print(f"Throw {throw_index} saved.")
-        throw_index += 1
+            writers = {}
+            for name, frame in frames.items():
+                h, w = frame.shape[:2]
+                filename = f"freethrow{throw_num}.mp4"
+                filepath = video_dirs[name] / filename
+                print(f"💾 Saving {name} feed to: {filepath}")
+                fourcc = cv.VideoWriter_fourcc(*'mp4v')
+                writers[name] = cv.VideoWriter(str(filepath), fourcc, actual_fps[name], (w, h))
+        else:
+            print("🛑 Stopped recording.")
+            for writer in writers.values():
+                writer.release()
+            writers = {}
 
     elif key == ord('q'):
-        print("Exiting.")
+        print("👋 Quitting.")
         break
 
-# ========================================
-# Cleanup
-# ========================================
+    # Write frames if recording
+    if recording:
+        for name in writers:
+            if name in frames:
+                writers[name].write(frames[name])
 
-capL.release()
-capR.release()
+# Cleanup
+for cap in caps.values():
+    cap.release()
+for writer in writers.values():
+    writer.release()
 cv.destroyAllWindows()
