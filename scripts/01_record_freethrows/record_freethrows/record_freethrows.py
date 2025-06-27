@@ -1,18 +1,24 @@
 """
-TODO
-- visuals saying if im recording or stopped 
-- say what free throw im on
-- use tkinter or something to organize the free throws and buttons 
-- make sure i can use a flash to trim my freethrows 
-- check fps of all the freethrows
-- check that i can synchronize them 
-- my external webcam didn't detect the flashes... more leds?
+Title: record_freethrows.py 
+
+Purpose
+    Record free throws through a GUI 
+
+Output
+    - Three video feeds
+
+Usage 
+    - GUI has a record and stop recording button
+    - GUI displays free throw attempt number 
 """
 
 import cv2 as cv
 import numpy as np
 from pathlib import Path
 from datetime import datetime
+import tkinter as tk
+from tkinter import Label, Button
+from PIL import Image, ImageTk
 
 # =========================
 # Config
@@ -50,12 +56,10 @@ caps = {
     "third": cv.VideoCapture(CAMERA_THIRD_INDEX)
 }
 
-# Set resolution (optional)
 for cap in caps.values():
     cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-# Check if opened and get actual FPS
 actual_fps = {}
 for name, cap in caps.items():
     if not cap.isOpened():
@@ -65,79 +69,86 @@ for name, cap in caps.items():
     actual_fps[name] = fps if fps > 1 else 30
     print(f"{name} camera FPS: {actual_fps[name]}")
 
-print("✅ All cameras opened. Press 's' to start/stop recording. Press 'q' to quit.")
+# =========================
+# Tkinter GUI Setup
+# =========================
+root = tk.Tk()
+root.title("Free Throw Recorder")
 
-# =========================
-# Recording Loop
-# =========================
+labels = {}
+images = {}
 recording = False
 writers = {}
+throw_num = 0
 
-# Window layout
-window_positions = {
-    "left": (0, 0),
-    "right": (FRAME_WIDTH + 20, 0),
-    "third": (0, FRAME_HEIGHT + 60)
-}
+status_text = tk.StringVar()
+status_text.set("Status: Idle")
 
-while True:
-    frames = {}
+def get_next_freethrow_number():
+    max_count = 0
+    for path in video_dirs.values():
+        count = len(list(path.glob("freethrow*.mp4")))
+        max_count = max(max_count, count)
+    return max_count + 1
 
+def toggle_recording():
+    global recording, writers, throw_num
+    recording = not recording
+
+    if recording:
+        throw_num = get_next_freethrow_number()
+        status_text.set(f"🎯 Recording freethrow{throw_num}")
+        writers = {}
+        for name, cap in caps.items():
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            h, w = frame.shape[:2]
+            filename = f"freethrow{throw_num}.mp4"
+            filepath = video_dirs[name] / filename
+            print(f"💾 Saving {name} feed to: {filepath}")
+            fourcc = cv.VideoWriter_fourcc(*'mp4v')
+            writers[name] = cv.VideoWriter(str(filepath), fourcc, actual_fps[name], (w, h))
+    else:
+        print("🛑 Stopped recording.")
+        status_text.set("Status: Idle")
+        for writer in writers.values():
+            writer.release()
+        writers = {}
+
+def update_frames():
     for name, cap in caps.items():
         ret, frame = cap.read()
         if not ret:
-            print(f"⚠️ Failed to read from {name}")
             continue
 
-        # Ensure consistent frame size
-        if frame.shape[1] != FRAME_WIDTH or frame.shape[0] != FRAME_HEIGHT:
-            frame = cv.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT))
+        frame = cv.resize(frame, (426, 240))  # Resize to fit in UI
+        frame_rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
+        images[name] = img
+        labels[name].configure(image=img)
 
-        frames[name] = frame
-        cv.imshow(name, frame)
+        if recording and name in writers:
+            writers[name].write(cv.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT)))  # save full res
 
-        if name in window_positions:
-            x, y = window_positions[name]
-            cv.moveWindow(name, x, y)
+    root.after(15, update_frames)
 
-    key = cv.waitKey(1) & 0xFF
+# =========================
+# Create GUI Components
+# =========================
+frame_top = tk.Frame(root)
+frame_top.pack()
 
-    if key == ord('s'):
-        recording = not recording
-        if recording:
-            def get_next_freethrow_number():
-                max_count = 0
-                for path in video_dirs.values():
-                    count = len(list(path.glob("freethrow*.mp4")))
-                    max_count = max(max_count, count)
-                return max_count + 1
+for name in ["left", "right", "third"]:
+    labels[name] = Label(frame_top)
+    labels[name].pack(side=tk.LEFT, padx=5)
 
-            throw_num = get_next_freethrow_number()
-            print(f"🔴 Started recording freethrow{throw_num}")
+Button(root, text="Start/Stop Recording", command=toggle_recording, height=2, width=30).pack(pady=10)
+Label(root, textvariable=status_text, font=("Helvetica", 14)).pack()
 
-            writers = {}
-            for name, frame in frames.items():
-                h, w = frame.shape[:2]
-                filename = f"freethrow{throw_num}.mp4"
-                filepath = video_dirs[name] / filename
-                print(f"💾 Saving {name} feed to: {filepath}")
-                fourcc = cv.VideoWriter_fourcc(*'mp4v')
-                writers[name] = cv.VideoWriter(str(filepath), fourcc, actual_fps[name], (w, h))
-        else:
-            print("🛑 Stopped recording.")
-            for writer in writers.values():
-                writer.release()
-            writers = {}
-
-    elif key == ord('q'):
-        print("👋 Quitting.")
-        break
-
-    # Write frames if recording
-    if recording:
-        for name in writers:
-            if name in frames:
-                writers[name].write(frames[name])
+update_frames()
+root.protocol("WM_DELETE_WINDOW", root.quit)
+root.mainloop()
 
 # Cleanup
 for cap in caps.values():
@@ -145,3 +156,4 @@ for cap in caps.values():
 for writer in writers.values():
     writer.release()
 cv.destroyAllWindows()
+

@@ -1,3 +1,18 @@
+"""
+Title: auto_trim_by_flash.py
+
+Purpose:
+    automate the process of trimming video files through the use
+    of LED flashes 
+
+Output
+    - trimmed video files 
+
+Usage:
+    - just run the script
+
+"""
+
 import os
 import cv2
 import numpy as np
