@@ -148,7 +148,7 @@ player-header: ## ⛹️  Player Tracking
 	@:
 
 detect_2d_keypoints: ## Detect 2D keypoints
-	python $(player_dir)/detect_2d_keypoints_mediapipe.py
+	python $(player_dir)/detect_2d_keypoints.py
 
 detect_3d_keypoints: ## Triangulate 3D keypoints
 	python $(player_dir)/detect_3d_keypoints.py

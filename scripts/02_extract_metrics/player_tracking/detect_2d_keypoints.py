@@ -18,14 +18,20 @@ SESSION = "player_tracking_tests"
 # Paths 
 # ========================================
 
-
 script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
+session_dir = base_dir / "data" / ATHLETE / SESSION 
+videos_dir = session_dir / "videos"
+extracted_dir = session_dir / "extracted_metrics"
 
 # input video paths
+left_video_dir = videos_dir / "player_tracking" / "processed" / "left"
+right_video_dir = videos_dir / "player_tracking" / "processed" / "right" 
 
-left_video_dir = base_dir / "data" / ATHLETE / SESSION / "01_record_data" / "videos" / "left"
-right_video_dir = base_dir / "data" / ATHLETE / SESSION / "01_record_data" / "videos" / "right" 
+# Define output directories
+left_out_dir = extracted_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "left"
+right_out_dir = extracted_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "right"
+
 
 # ======================================== 
 # Functions
@@ -88,10 +94,6 @@ for left_video in sorted(left_video_dir.glob("*.mp4")):
     if not right_video.exists():
         print(f"Skipping {clip_base}: no matching right video.")
         continue
-
-    # Define output directories
-    left_out_dir = base_dir / "data" / session / "02_process_data" / "left_2d"
-    right_out_dir = base_dir / "data" / session / "02_process_data" / "right_2d"
 
     # Create output directories if they don't exist
     left_out_dir.mkdir(parents=True, exist_ok=True)
