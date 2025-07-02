@@ -61,9 +61,20 @@ calibrate_stereo: ## Step 2 - Stereo Calibration (int/ext)
 	python $(calibrate_dir)/calibrate_stereo.py
 
 # ----------------------------------------
-# Trim freethrows
+# Record freethrows
 # ----------------------------------------
-trim-header: ## ✂️  Trim Videos
+record-header: ## 🎥 Record Freethrows
+	@:
+
+record_freethrows: ## Record a freethrow session
+	@echo "Recording a freethrow..."
+	python $(record_dir)/record_freethrows/record_freethrows.py
+
+
+# ----------------------------------------
+# Preprocessing freethrow videows 
+# ----------------------------------------
+preprocessing-header: ## ✂️  Preprocssing Videos
 	@:
 
 trim_by_flash: ## Automatic trimming via flashes
@@ -74,15 +85,9 @@ downsample_videos: ## Downsample trimmed videos
 	@echo "Downsampling video clips..."
 	python $(preprocessing_dir)/downsample_videos.py
 
-# ----------------------------------------
-# Record freethrows
-# ----------------------------------------
-record-header: ## 🎥 Record Freethrows
-	@:
-
-record_freethrows: ## Record a freethrow session
-	@echo "Recording a freethrow..."
-	python $(record_dir)/record_freethrows/record_freethrows.py
+synchronize_videos: ## synchronize downsampled videos
+	@echo "Synchronizing video clips..."
+	python $(preprocessing_dir)/synchronize_videos.py
 
 # ----------------------------------------
 # Helpers
