@@ -29,7 +29,7 @@ from pathlib import Path
 CHECKERBOARD_SIZE = (5,4) # Checkerboard size (columns, rows)
 SQUARE_SIZE = 2.5 # size of one square in centimeters 
 
-ATHLETE = "Kenny"
+ATHLETE = "kenny"
 SESSION = "session_001"
 
 

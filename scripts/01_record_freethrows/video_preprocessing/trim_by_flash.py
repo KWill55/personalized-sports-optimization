@@ -51,8 +51,8 @@ raw_left_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
 raw_right_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
 raw_ball_dir = session_dir / "videos" / "ball_tracking" / "raw"
 
-processed_left_dir = session_dir / "videos" / "player_tracking" / "processed" / "left"
-processed_right_dir = session_dir / "videos" / "player_tracking" / "processed" / "right"
+processed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "left"
+processed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
 processed_ball_dir = session_dir / "videos" / "ball_tracking" / "processed"
 
 # ========================================

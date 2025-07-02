@@ -43,7 +43,7 @@ divider2-header: ## -------------------------------------
 # ----------------------------------------
 record_dir := scripts/01_record_freethrows
 calibrate_dir := $(record_dir)/player_calibration
-trim_dir := $(record_dir)/trim_freethrows
+preprocessing_dir := $(record_dir)/video_preprocessing
 helpers_dir := $(record_dir)/helpers
 
 # ----------------------------------------
@@ -66,13 +66,13 @@ calibrate_stereo: ## Step 2 - Stereo Calibration (int/ext)
 trim-header: ## ✂️  Trim Videos
 	@:
 
-auto_trim_by_flash: ## Automatic trimming via flashes
+trim_by_flash: ## Automatic trimming via flashes
 	@echo "Trimming video clips via flash..."
-	python $(trim_dir)/auto_trim_by_flash.py
+	python $(preprocessing_dir)/trim_by_flash.py
 
-manual_trim: ## Manual trimming interface
-	@echo "Opening manual trim tool..."
-	python $(trim_dir)/manual_trim.py
+downsample_videos: ## Downsample trimmed videos 
+	@echo "Downsampling video clips..."
+	python $(preprocessing_dir)/downsample_videos.py
 
 # ----------------------------------------
 # Record freethrows
