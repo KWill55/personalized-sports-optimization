@@ -30,12 +30,12 @@ trimmed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "lef
 trimmed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
 trimmed_ball_dir = session_dir / "videos" / "ball_tracking" / "trimmed"
 
-processed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "left"
-processed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
-processed_ball_dir = session_dir / "videos" / "ball_tracking" / "processed"
+downsampled_left_dir = session_dir / "videos" / "player_tracking" / "downsampled" / "left"
+downsampled_right_dir = session_dir / "videos" / "player_tracking" / "downsampled" / "right"
+downsampled_ball_dir = session_dir / "videos" / "ball_tracking" / "downsampled"
 
 # Make sure output dirs exist
-for dir_path in [processed_left_dir, processed_right_dir, processed_ball_dir]:
+for dir_path in [downsampled_left_dir, downsampled_right_dir, downsampled_ball_dir]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
 # ========================================
@@ -78,9 +78,9 @@ def downsample_videos(input_dir: Path, output_dir: Path, target_fps: int):
 # Run Downsampling on All Cameras
 # ========================================
 
-downsample_videos(trimmed_left_dir, processed_left_dir, TARGET_FPS)
-downsample_videos(trimmed_right_dir, processed_right_dir, TARGET_FPS)
-downsample_videos(trimmed_ball_dir, processed_ball_dir, TARGET_FPS)
+downsample_videos(trimmed_left_dir, downsampled_left_dir, TARGET_FPS)
+downsample_videos(trimmed_right_dir, downsampled_right_dir, TARGET_FPS)
+downsample_videos(trimmed_ball_dir, downsampled_ball_dir, TARGET_FPS)
 
 
 
