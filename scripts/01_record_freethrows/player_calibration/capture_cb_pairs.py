@@ -1,97 +1,139 @@
 """
-Title: capture_cb_pairs.py
+Title: capture_cb_pairs_gui.py
 
 Purpose:
-    Captures synchronized image pairs from two USB webcams for calibration purposes.
-
-Prerequisites:
-    - Two USB webcams pointed at checkerboard
+    GUI tool to capture synchronized checkerboard images from two webcams.
 
 Output:
-    - Saves images to left_calib_dir and right_calib_dir 
-    - Each pair of images is saved with a sequential filename format (left_00.jpg, right_00.jpg, etc.).
+    - Saves image pairs to left_calib_dir and right_calib_dir
+    - Images named: left_00.jpg, right_00.jpg, etc.
 
 Usage:
-    - Press SPACE to capture a pair of images.
-    - Press ESC to exit the script.
-    """
+    - GUI displays both camera feeds.
+    - Button click captures synchronized image pair.
+    - Image pair number displayed.
+"""
 
 import cv2 as cv
 import os
 from pathlib import Path
+import tkinter as tk
+from tkinter import Label, Button
+from PIL import Image, ImageTk
 
-
-# ========================================
-# Configuration Constants 
-# ========================================
-
+# =========================
+# Config
+# =========================
 CAMERA_LEFT_INDEX = 0
 CAMERA_RIGHT_INDEX = 1
-
-# path parameters
-ATHLETE = "Kenny" 
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
+ATHLETE = "kenny"
 SESSION = "session_001"
 
-# ========================================
-# Paths and Directories
-# ========================================
-
-base_dir = Path(__file__).resolve().parents[3] # Go up to project root
+# =========================
+# Paths
+# =========================
+base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 left_calib_dir = session_dir / "calibration" / "calib_images" / "left"
 right_calib_dir = session_dir / "calibration" / "calib_images" / "right"
 
-os.makedirs(right_calib_dir, exist_ok=True)
-os.makedirs(left_calib_dir, exist_ok=True)
+for d in [left_calib_dir, right_calib_dir]:
+    d.mkdir(parents=True, exist_ok=True)
 
-# ========================================
-# Setup
-# ========================================
+# =========================
+# Open Cameras
+# =========================
+caps = {
+    "left": cv.VideoCapture(CAMERA_LEFT_INDEX),
+    "right": cv.VideoCapture(CAMERA_RIGHT_INDEX)
+}
 
-# open video capture for both cameras
-capL = cv.VideoCapture(CAMERA_LEFT_INDEX)
-capR = cv.VideoCapture(CAMERA_RIGHT_INDEX)
+for cap in caps.values():
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-if not capL.isOpened() or not capR.isOpened():
-    print("[ERROR] Could not open one or both cameras.")
-    exit()
+for name, cap in caps.items():
+    if not cap.isOpened():
+        print(f"[ERROR] Could not open {name} camera.")
+        exit()
 
+# =========================
+# Tkinter GUI Setup
+# =========================
+root = tk.Tk()
+root.title("Calibration Image Capture")
+
+labels = {}
+images = {}
 frame_id = 0
-print("[INFO] Press SPACE to capture image pair. Press ESC to quit.")
 
-# ========================================
-# Main Loop
-# ========================================
+status_text = tk.StringVar()
+status_text.set("Ready to capture image pairs")
 
-while True:
-    retL, frameL = capL.read()
-    retR, frameR = capR.read()
+# =========================
+# Helper Functions
+# =========================
+def get_next_image_pair_number():
+    left_images = list(left_calib_dir.glob("left_*.jpg"))
+    return len(left_images)
+
+def capture_image_pair():
+    global frame_id
+    retL, frameL = caps["left"].read()
+    retR, frameR = caps["right"].read()
 
     if not retL or not retR:
-        print("[WARNING] Failed to grab frames.")
-        continue
+        print("[ERROR] Failed to grab one or both frames.")
+        return
 
-    # Display live preview
-    cv.imshow("Left Camera", frameL)
-    cv.imshow("Right Camera", frameR)
+    fnameL = left_calib_dir / f"left_{frame_id:02}.jpg"
+    fnameR = right_calib_dir / f"right_{frame_id:02}.jpg"
+    cv.imwrite(str(fnameL), frameL)
+    cv.imwrite(str(fnameR), frameR)
+    print(f"[INFO] Saved pair #{frame_id}: {fnameL.name}, {fnameR.name}")
+    frame_id += 1
+    status_text.set(f"Captured pair #{frame_id}")
 
-    key = cv.waitKey(1)
-    if key % 256 == 27:  # ESC key
-        print("[INFO] Exiting.")
-        break
-    elif key % 256 == 32:  # SPACE key
-        fnameL = os.path.join(left_calib_dir, f"left_{frame_id:02}.jpg")
-        fnameR = os.path.join(right_calib_dir, f"right_{frame_id:02}.jpg")
-        cv.waitKey(300)  # Wait 300 ms after saving (debounce)
-        cv.imwrite(fnameL, frameL)
-        cv.imwrite(fnameR, frameR)
-        print(f"[INFO] Saved pair #{frame_id} → {fnameL}, {fnameR}")
-        frame_id += 1
+def update_frames():
+    for name, cap in caps.items():
+        ret, frame = cap.read()
+        if not ret:
+            continue
 
-# ========================================
+        frame = cv.resize(frame, (426, 240))
+        frame_rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
+        images[name] = img
+        labels[name].configure(image=img)
+
+    root.after(15, update_frames)
+
+# =========================
+# Create GUI Components
+# =========================
+frame_top = tk.Frame(root)
+frame_top.pack()
+
+for name in ["left", "right"]:
+    labels[name] = Label(frame_top)
+    labels[name].pack(side=tk.LEFT, padx=5)
+
+Button(root, text="Capture Image Pair", command=capture_image_pair, height=2, width=30).pack(pady=10)
+Label(root, textvariable=status_text, font=("Helvetica", 14)).pack()
+
+# =========================
+# Launch
+# =========================
+frame_id = get_next_image_pair_number()
+update_frames()
+root.protocol("WM_DELETE_WINDOW", root.quit)
+root.mainloop()
+
+# =========================
 # Cleanup
-# ========================================
-
-capL.release()
-capR.release()
+# =========================
+for cap in caps.values():
+    cap.release()
 cv.destroyAllWindows()

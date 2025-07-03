@@ -25,7 +25,7 @@ from PIL import Image, ImageTk
 # =========================
 CAMERA_LEFT_INDEX = 0
 CAMERA_RIGHT_INDEX = 1
-CAMERA_THIRD_INDEX = 2
+CAMERA_THIRD_INDEX = 3
 
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
