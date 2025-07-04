@@ -28,7 +28,7 @@ import numpy as np
 # Configuration Constants 
 # ========================================
 
-CAMERA_INDEX = 1 # use identify_cameras.py to find the correct index
+CAMERA_INDEX = 0 # use identify_cameras.py to find the correct index
 CHECKERBOARD = (5,4)  # (cols, rows) — numberof internal corners
 SQUARE_SIZE = 2.5  # cm 
 CALIBRATE_EVERY = 40  # frames between calibrations

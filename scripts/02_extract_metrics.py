@@ -1,38 +1,87 @@
-# Python Driver 
-# scripts/02_extract_metrics.py
-# TODO this file and eventually make rule to run this 
+"""
+run_phase2.py
 
-# Important: This is just a demo. dont actally use this file yet
+Purpose:
+    Run Phase 2 of the free throw analysis pipeline to extract motion and ball metrics,
+    producing summarized CSV data ready for analysis and modeling.
+
+Steps:
+    1. Split video phases
+    2. Run ball tracking and extract metrics (arc, spin, contact, velocity)
+    3. Detect 2D and 3D player keypoints
+    4. [Optional] Visualize player tracking results
+    5. Combine shot metrics into summary CSV
+    6. Split summary into features and labels
+
+Control which steps run using the flags in the CONFIG section.
+"""
 
 import subprocess
 
-# === CONFIGURATION FLAGS ===
-RUN_PHASE_DETECTION = True
+# ======================
+# CONFIG
+# ======================
+
+RUN_SPLIT_PHASES = True
+RUN_BALL_TRACKING = True
 RUN_PLAYER_TRACKING = True
-RUN_BALL_TRACKING   = True
-RUN_VISUALIZATION   = True
-RUN_COMBINE_METRICS = True
+RUN_VISUALIZATIONS = False
+RUN_COMBINE_SUMMARIES = True
+RUN_SPLIT_FEATURES_LABELS = True  
 
-# === PIPELINE EXECUTION ===
+# ======================
+# PATHS
+# ======================
 
-if RUN_PHASE_DETECTION:
-    print("🔍 Detecting release phases...")
-    subprocess.run(["python", "02_extract_metrics/detect_phases.py"], check=True)
+SCRIPT_PATHS = {
+    "split_phases":              "02_metric_extraction/split_phases/split_phases.py",
+    "ball_tracking":             "02_metric_extraction/ball_tracking/detect_metrics.py",
+    "detect_2d_keypoints":       "02_metric_extraction/player_tracking/detect_2d_keypoints.py",
+    "detect_3d_keypoints":       "02_metric_extraction/player_tracking/detect_3d_keypoints.py",
+    "visualize_2d_keypoints":    "02_metric_extraction/player_tracking/visualize_2d_keypoints.py",
+    "visualize_3d_keypoints":    "02_metric_extraction/player_tracking/visualize_3d_keypoints.py",
+    "combine_summaries":         "02_metric_extraction/summary_builder/combine_release_summaries.py",
+    "split_features_labels":     "02_metric_extraction/summary_builder/split_features_labels.py",  
+}
 
-if RUN_PLAYER_TRACKING:
-    print("🧍 Extracting 3D keypoints...")
-    subprocess.run(["python", "02_extract_metrics/player_tracking/detect_3d_keypoints.py"], check=True)
+# ======================
+# RUNNER FUNCTION
+# ======================
 
-if RUN_BALL_TRACKING:
-    print("🏀 Extracting ball metrics...")
-    subprocess.run(["python", "02_extract_metrics/ball_tracking/detect_metrics.py"], check=True)
+def run_script(name, path):
+    print(f"\n==============================")
+    print(f"🔄 Running: {name}")
+    print(f"==============================")
+    try:
+        subprocess.run(["python", path], check=True)
+        print(f"✅ Completed: {name}")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed: {name} - {e}")
+        exit(1)
 
-if RUN_VISUALIZATION:
-    print("🖼 Visualizing kinematics...")
-    subprocess.run(["python", "02_extract_metrics/visualize/plot_release_kinematics.py"], check=True)
+# ======================
+# PHASE 2 RUNNER
+# ======================
 
-if RUN_COMBINE_METRICS:
-    print("📊 Combining all metrics into summary CSV...")
-    subprocess.run(["python", "02_extract_metrics/finalize_data/combine_release_summaries.py"], check=True)
+if __name__ == "__main__":
+    if RUN_SPLIT_PHASES:
+        run_script("Split Video Phases", SCRIPT_PATHS["split_phases"])
 
-print("✅ Phase 2 complete.")
+    if RUN_BALL_TRACKING:
+        run_script("Ball Tracking + Metric Extraction", SCRIPT_PATHS["ball_tracking"])
+
+    if RUN_PLAYER_TRACKING:
+        run_script("Detect 2D Keypoints", SCRIPT_PATHS["detect_2d_keypoints"])
+        run_script("Detect 3D Keypoints", SCRIPT_PATHS["detect_3d_keypoints"])
+
+    if RUN_VISUALIZATIONS:
+        run_script("Visualize 2D Keypoints", SCRIPT_PATHS["visualize_2d_keypoints"])
+        run_script("Visualize 3D Keypoints", SCRIPT_PATHS["visualize_3d_keypoints"])
+
+    if RUN_COMBINE_SUMMARIES:
+        run_script("Combine Summary CSVs", SCRIPT_PATHS["combine_summaries"])
+
+    if RUN_SPLIT_FEATURES_LABELS:
+        run_script("Split Features & Labels", SCRIPT_PATHS["split_features_labels"])
+
+    print("\n🎉 Phase 2 completed successfully!")

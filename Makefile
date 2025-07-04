@@ -29,11 +29,11 @@ help:
 
 
 # ======================================== 
-# Phase 1: Recording Freethrows 
+# Phase 1: Data Preparation 
 # ========================================
 divider1-header: ## -------------------------------------
 	@:
-phase1-header: ## PHASE 1 SCRIPTS (Record Freethrows)
+phase1-header: ## PHASE 1 SCRIPTS
 	@:
 divider2-header: ## -------------------------------------
 	@:
@@ -41,10 +41,10 @@ divider2-header: ## -------------------------------------
 # ----------------------------------------
 # Paths and Directories  
 # ----------------------------------------
-record_dir := scripts/01_record_freethrows
-calibrate_dir := $(record_dir)/player_calibration
-preprocessing_dir := $(record_dir)/video_preprocessing
-helpers_dir := $(record_dir)/helpers
+prep_dir := scripts/01_data_preparation
+calibrate_dir := $(prep_dir)/player_calibration
+preprocessing_dir := $(prep_dir)/video_preprocessing
+helpers_dir := $(prep_dir)/helpers
 
 # ----------------------------------------
 # Player calibration
@@ -68,7 +68,7 @@ record-header: ## 🎥 Record Freethrows
 
 record_freethrows: ## Record a freethrow session
 	@echo "Recording a freethrow..."
-	python $(record_dir)/record_freethrows/record_freethrows.py
+	python $(prep_dir)/record_freethrows/record_freethrows.py
 
 
 # ----------------------------------------
@@ -99,6 +99,10 @@ identify_cameras: ## Camera identification GUI
 	@echo "Opening GUI to identify camera indices..."
 	python $(helpers_dir)/identify_cameras.py
 
+tune_intrinsics: ## verify cameras can see checkerboard
+	@echo "Opening camera to identify checkerboard"
+	python $(helpers_dir)/tune_intrinsics.py
+
 detect_video_fps: ## Detect FPS of a video
 	@echo "Detecting video FPS..."
 	python $(helpers_dir)/detect_video_fps.py
@@ -121,7 +125,7 @@ test_dual_cameras: ## open 2 camera streams
 # ========================================
 divider3-header: ## -------------------------------------
 	@:
-phase2-header: ## PHASE 2 SCRIPTS (Prepare Data for ML)
+phase2-header: ## PHASE 2 SCRIPTS 
 	@:
 divider4-header: ## -------------------------------------
 	@:
@@ -129,7 +133,7 @@ divider4-header: ## -------------------------------------
 # ----------------------------------------
 # Paths and Directories  
 # ----------------------------------------
-extract_dir := scripts/02_extract_metrics
+extract_dir := scripts/02_metric_extraction
 ball_dir := $(extract_dir)/ball_tracking
 metrics_dir := $(ball_dir)/metrics
 player_dir := $(extract_dir)/player_tracking
@@ -232,7 +236,7 @@ tune_hsv: ## HSV color tuning
 # ========================================
 divider5-header: ## -------------------------------------
 	@:
-phase3-header: ## PHASE 3 SCRIPTS (Analyze Data)
+phase3-header: ## PHASE 3 SCRIPTS
 	@:
 divider6-header: ## -------------------------------------
 	@:
