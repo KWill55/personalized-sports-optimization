@@ -183,8 +183,8 @@ plot_vel_timeseries: ## Plot velocity profiles
 ball-header: ## 🏀 Ball Tracking
 	@:
 
-detect_metrics: ## Detect ball metrics
-	python $(ball_dir)/detect_metrics.py
+detect_makes: ## Detect ball metrics
+	python $(ball_dir)/detect_makes.py
 
 backboard_contact: ## Detect backboard contact
 	python $(metrics_dir)/backboard_contact.py

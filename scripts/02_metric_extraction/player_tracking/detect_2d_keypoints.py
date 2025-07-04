@@ -11,8 +11,8 @@ mp_pose = mp.solutions.pose
 # Configuration Parameters 
 # ========================================
 
-ATHLETE = "tests"
-SESSION = "player_tracking_tests"
+ATHLETE = "kenny"
+SESSION = "session_001"
 
 # ======================================== 
 # Paths 
@@ -22,16 +22,15 @@ script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]  # Go up to project root
 session_dir = base_dir / "data" / ATHLETE / SESSION 
 videos_dir = session_dir / "videos"
-extracted_dir = session_dir / "extracted_metrics"
+metrics_dir = session_dir / "metrics"
 
 # input video paths
-left_video_dir = videos_dir / "player_tracking" / "processed" / "left"
-right_video_dir = videos_dir / "player_tracking" / "processed" / "right" 
+left_video_dir = videos_dir / "player_tracking" / "synchronized" / "left"
+right_video_dir = videos_dir / "player_tracking" / "synchronized" / "right" 
 
 # Define output directories
-left_out_dir = extracted_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "left"
-right_out_dir = extracted_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "right"
-
+left_out_dir = metrics_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "left"
+right_out_dir = metrics_dir / "player_tracking_metrics" / "timeseries" / "raw_2d" / "raw" / "right"
 
 # ======================================== 
 # Functions

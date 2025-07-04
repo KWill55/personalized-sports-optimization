@@ -1,22 +1,22 @@
 ## Phase 2: Metric Extraction
 
-**Purpose:**  
+**Phase 2 Purpose:**  
 Extract biomechanical and performance metrics for each free throw.
 
-Split Phases
+**Split Phases Purpose:**
 * Split phases by elbow extension (find release point)
 
-Ball Tracking
+**Ball Tracking Purpose:**
 * calculate make/miss
 * calculate other desired metrics
 
-Player Tracking
+**Player Trackin:**
 * Get 2D keypoints from stereo system
 * Get 3D keypoints from 2D keypoints 
 * visualizations optional 
 * save both moment of release and data over time for each free throw 
 
-Summary Builder 
+**Summary Builder:**
 * combine player and ball CSVs into a release summary CSV 
 * make new CSVs for features and labels 
 

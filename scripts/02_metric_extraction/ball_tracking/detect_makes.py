@@ -12,8 +12,8 @@ import math
 # =========================
 
 # path parameters
-ATHLETE = "tests"
-SESSION = "ball_tracking_tests"
+ATHLETE = "kenny"
+SESSION = "session_001"
 
 # hoop regions (created in create_hoop_regions.py)
 UPPER_HOOP_REGION = ((1223, 362), (1314, 402))
@@ -32,8 +32,8 @@ PRINT_TRAJECTORY = True
 # =========================
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "angled" / "trimmed"
-OUTPUT_PATH = BASE_DIR / "data" / ATHLETE / SESSION / "angled" / "freethrow_results.csv"
+INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "videos" / "ball_tracking" / "synchronized"
+OUTPUT_PATH = BASE_DIR / "data" / ATHLETE / SESSION / "metrics" / "ball_tracking_metrics" / "outcomes" / "freethrow_results.csv"
 
 # =========================
 # Global Variables

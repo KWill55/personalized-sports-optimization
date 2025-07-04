@@ -16,6 +16,8 @@ Steps:
 Control which steps run using the flags in the CONFIG section.
 """
 
+#TODO: maybe add some of the helper scripts like HSV tuning, hoop region creation, etc. to this script
+
 import subprocess
 
 # ======================
@@ -35,7 +37,7 @@ RUN_SPLIT_FEATURES_LABELS = True
 
 SCRIPT_PATHS = {
     "split_phases":              "02_metric_extraction/split_phases/split_phases.py",
-    "ball_tracking":             "02_metric_extraction/ball_tracking/detect_metrics.py",
+    "ball_tracking":             "02_metric_extraction/ball_tracking/detect_makes.py",
     "detect_2d_keypoints":       "02_metric_extraction/player_tracking/detect_2d_keypoints.py",
     "detect_3d_keypoints":       "02_metric_extraction/player_tracking/detect_3d_keypoints.py",
     "visualize_2d_keypoints":    "02_metric_extraction/player_tracking/visualize_2d_keypoints.py",

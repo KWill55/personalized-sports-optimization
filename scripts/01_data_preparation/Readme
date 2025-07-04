@@ -1,15 +1,14 @@
 
 ## Phase 1: Data Preparation
 
-**Purpose:**  
+**Phase 1 Purpose:**  
 Capture synchronized video data of the athlete and basketball to prepare for motion analysis.
 
-
-Calibration 
+**Calibration Purpose:** 
 * capture checkerboard images and then calibrate the stereo system
 
-Record free throws
+**Record free throws Purpose:**
 * Record the freethrows
 
-Video Preprocessing
+**Video Preprocessing:**
 * Syncrhonize the three video files
