@@ -4,6 +4,7 @@ run_phase1.py
 Purpose:
     Run Phase 1 of the free throw analysis pipeline by executing the following scripts in order:
 
+    tune intrinsics for each camera through... 
     1. Capture checkerboard pairs
     2. Stereo calibration
     3. Record free throws
@@ -21,6 +22,7 @@ import subprocess
 # CONFIGURATION PARAMTERS
 # ========================================
 
+RUN_TUNE_INTRINSICS = True 
 RUN_CAPTURE_CB_PAIRS = True
 RUN_CALIBRATE_STEREO = True
 RUN_RECORD_FREETHROWS = True
@@ -30,6 +32,7 @@ RUN_SYNCHRONIZE_VIDEOS = True
 
 # Optional: Paths to scripts (customize these if your paths differ)
 SCRIPT_PATHS = {
+    "tune_intrinsics":       "01_data_preparation/helpers/tune_intrinsics.py",
     "capture_cb_pairs":      "01_data_preparation/player_calibration/capture_cb_pairs.py",
     "calibrate_stereo":      "01_data_preparation/player_calibration/calibrate_stereo.py",
     "record_freethrows":     "01_data_preparation/record_freethrows/record_freethrows.py",
@@ -59,6 +62,9 @@ def run_script(name, path):
 # ========================================
 
 if __name__ == "__main__":
+    if RUN_TUNE_INTRINSICS: 
+        run_script("Tune Intrinsics", SCRIPT_PATHS("tune_intrinsics"))
+    
     if RUN_CAPTURE_CB_PAIRS:
         run_script("Capture Checkerboard Pairs", SCRIPT_PATHS["capture_cb_pairs"])
 
