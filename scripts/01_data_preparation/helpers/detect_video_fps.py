@@ -8,32 +8,31 @@ Description:
 
 Usage:
     Place video files in the specified folder and run the script.
+
+Notes:
+    - if FPS is lower than expected, try using external USB driver for one camera. 
 """
 
 import cv2
-import time
 from pathlib import Path
 
 # ========================================
 # Configuration Constants
 # ========================================
 
-ATHLETE = "Kenny"  # Change this to your athlete's name
+ATHLETE = "Kenny"
 SESSION = "session_001"
-ANGLE = "player_tracking" 
-SIDE = "left"  # Change to "right" if needed or "" empty if ball tracking
+ANGLE = "player_tracking" # "player_tracking", "ball_tracking"
+SIDE = "right" #"left", "right", "" (for ball tracking)
 
 SUPPORTED_EXTENSIONS = [".mp4", ".avi", ".mov"]
-FRAME_COUNT_TEST = 100  # Number of frames to use for actual FPS test
-
 
 # ========================================
 # Paths and Directories
 # ========================================
 
-base_dir = Path(__file__).resolve().parents[3] # Go up to project root
+base_dir = Path(__file__).resolve().parents[3]  # Adjust if needed
 session_dir = base_dir / "data" / ATHLETE / SESSION
-
 video_folder = session_dir / "videos" / ANGLE / "raw" / SIDE
 
 # ========================================
@@ -50,23 +49,16 @@ for video_path in video_files:
     print(f"\n[INFO] Processing: {video_path.name}")
     cap = cv2.VideoCapture(str(video_path))
 
-    # Get reported FPS
     encoded_fps = cap.get(cv2.CAP_PROP_FPS)
-    print(f"[INFO] Encoded FPS: {encoded_fps:.2f}")
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration_sec = frame_count / encoded_fps if encoded_fps else 0
 
-    # Read frames and time it
-    frames_read = 0
-    start = time.time()
+    print(f"[INFO] Encoded FPS       : {encoded_fps:.2f}")
+    print(f"[INFO] Frame count       : {frame_count}")
+    print(f"[INFO] Duration (seconds): {duration_sec:.2f}")
 
-    while frames_read < FRAME_COUNT_TEST:
-        ret, frame = cap.read()
-        if not ret:
-            print(f"[WARNING] Video ended at frame {frames_read}")
-            break
-        frames_read += 1
+    # Optional: Calculate real average FPS from metadata
+    avg_fps = frame_count / duration_sec if duration_sec else 0
+    print(f"[RESULT] Estimated FPS   : {avg_fps:.2f}")
 
-    end = time.time()
     cap.release()
-
-    actual_fps = frames_read / (end - start)
-    print(f"[RESULT] Actual read FPS: {actual_fps:.2f}")
