@@ -22,8 +22,8 @@ from pathlib import Path
 
 ATHLETE = "Kenny"
 SESSION = "session_001"
-ANGLE = "player_tracking" # "player_tracking", "ball_tracking"
-SIDE = "right" #"left", "right", "" (for ball tracking)
+ANGLE = "ball_tracking" # "player_tracking", "ball_tracking"
+SIDE = "" #"left", "right", "" (for ball tracking)
 
 SUPPORTED_EXTENSIONS = [".mp4", ".avi", ".mov"]
 

@@ -2,11 +2,11 @@ import cv2
 from pathlib import Path
 
 # ========== Config ==========
-CAMERA_INDEX = 0  
+CAMERA_INDEX = 1
 OUTPUT_FILENAME = "recorded_video.mp4"
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
-FRAME_RATE = 30
+FRAME_RATE = 90
 
 # ========== Setup ==========
 cap = cv2.VideoCapture(CAMERA_INDEX)

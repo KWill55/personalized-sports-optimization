@@ -7,12 +7,11 @@ from pathlib import Path
 # Config
 # ========================================
 
-ATHLETE = "Kenny"
+ATHLETE = "kenny"
 SESSION = "session_001"
-CLIP_NAME = "freethrow1_sync" 
-VIEW = "right" 
+VIEW = "right"  # "left" or "right"
+DRAW_DELAY_MS = 33  # ~30 FPS playback
 
-frame_to_draw = 100  # <<< change this to the frame you want to display
 
 # ========================================
 # Paths
@@ -22,9 +21,8 @@ script_dir = Path(__file__).resolve().parent
 base_dir = script_dir.parents[2]
 session_dir = base_dir / ATHLETE / SESSION
 
-csv_path = session_dir / "extracted_metrics" / "player_tracking_metrics" / "raw_metrics" / f"{CLIP_NAME}_{VIEW}_2d.csv"
-video_path = session_dir / "videos" / "player_tracking" / "processed" / VIEW / f"{CLIP_NAME}.mp4"
-
+csv_folder = session_dir / "metrics" / "player_tracking_metrics" / "time_series" / "2d_csvs"
+video_folder = session_dir / "videos" / "player_tracking" / "synchronized" / VIEW
 
 # ========================================
 # MediaPipe COCO-style landmark connections
@@ -42,48 +40,57 @@ POSE_CONNECTIONS = [
 ]
 
 # ========================================
-# Load data
+# Process each CSV/video pair
 # ========================================
 
-df = pd.read_csv(csv_path)
-frame_data = df[df["frame"] == frame_to_draw].values[0][1:]  # skip frame index
+csv_files = sorted(csv_folder.glob(f"*_{VIEW}_2d.csv"))
 
-# Reshape into (33, 3) → (x, y, visibility)
-keypoints = np.array(frame_data).reshape(-1, 3)
+for csv_path in csv_files:
+    clip_name = csv_path.name.replace(f"_{VIEW}_2d.csv", "")
+    video_path = video_folder / f"{clip_name}.mp4"
 
-# ========================================
-# Load video frame
-# ========================================
+    if not video_path.exists():
+        print(f"[WARNING] Skipping {clip_name}: video not found.")
+        continue
 
-cap = cv2.VideoCapture(str(video_path))
-cap.set(cv2.CAP_PROP_POS_FRAMES, frame_to_draw)
-success, frame = cap.read()
-cap.release()
+    print(f"[INFO] Playing: {clip_name}")
 
-if not success:
-    raise RuntimeError(f"Could not read frame {frame_to_draw} from {video_path}")
+    # Load CSV
+    df = pd.read_csv(csv_path)
+    keypoints_all = df.drop(columns=["frame"]).values.reshape((-1, 33, 3))  # (num_frames, 33, 3)
 
-frame_h, frame_w = frame.shape[:2]
+    # Load video
+    cap = cv2.VideoCapture(str(video_path))
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-# ========================================
-# Draw keypoints and lines
-# ========================================
+    frame_idx = 0
+    while cap.isOpened():
+        success, frame = cap.read()
+        if not success or frame_idx >= len(keypoints_all):
+            break
 
-for i, (x, y, v) in enumerate(keypoints):
-    if v > 0.3:  # visibility threshold
-        cx, cy = int(x * frame_w), int(y * frame_h)
-        cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+        keypoints = keypoints_all[frame_idx]
+        frame_h, frame_w = frame.shape[:2]
 
-for a, b in POSE_CONNECTIONS:
-    if keypoints[a][2] > 0.3 and keypoints[b][2] > 0.3:
-        ax, ay = int(keypoints[a][0] * frame_w), int(keypoints[a][1] * frame_h)
-        bx, by = int(keypoints[b][0] * frame_w), int(keypoints[b][1] * frame_h)
-        cv2.line(frame, (ax, ay), (bx, by), (255, 0, 0), 2)
+        # Draw keypoints
+        for i, (x, y, v) in enumerate(keypoints):
+            if v > 0.3:
+                cx, cy = int(x * frame_w), int(y * frame_h)
+                cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
 
-# ========================================
-# Show image
-# ========================================
+        # Draw connections
+        for a, b in POSE_CONNECTIONS:
+            if keypoints[a][2] > 0.3 and keypoints[b][2] > 0.3:
+                ax, ay = int(keypoints[a][0] * frame_w), int(keypoints[a][1] * frame_h)
+                bx, by = int(keypoints[b][0] * frame_w), int(keypoints[b][1] * frame_h)
+                cv2.line(frame, (ax, ay), (bx, by), (255, 0, 0), 2)
 
-cv2.imshow(f"{CLIP_NAME} - Frame {frame_to_draw}", frame)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+        # Show frame
+        cv2.imshow(f"{clip_name} - {VIEW}", frame)
+        if cv2.waitKey(DRAW_DELAY_MS) & 0xFF == ord('q'):
+            break
+
+        frame_idx += 1
+
+    cap.release()
+    cv2.destroyAllWindows()

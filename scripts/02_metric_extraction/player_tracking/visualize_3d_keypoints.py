@@ -9,7 +9,7 @@ from pathlib import Path
 # Configuration Parameters
 # ========================================
 
-ATHLETE = "Kenny"
+ATHLETE = "kenny"
 SESSION = "session_001"
 CLIP_NAME = "freethrow1_sync"
 

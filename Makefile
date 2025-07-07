@@ -119,6 +119,10 @@ test_dual_cameras: ## open 2 camera streams
 	@echo "Opening 2 camera streams..."
 	python $(helpers_dir)/test_dual_cameras.py
 
+record_video: ## Recrord a video
+	@echo "Recording a video..."
+	python $(helpers_dir)/record_video.py
+
 
 # ======================================== 
 # Phase 2: Extract player and ball metrics
