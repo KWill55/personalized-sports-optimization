@@ -62,6 +62,9 @@ def run_script(name, path):
 # ========================================
 
 if __name__ == "__main__":
+
+    # Use identify_cameras.py to find the correct camera indices
+
     if RUN_TUNE_INTRINSICS: 
         run_script("Tune Intrinsics", SCRIPT_PATHS("tune_intrinsics"))
     
@@ -71,8 +74,12 @@ if __name__ == "__main__":
     if RUN_CALIBRATE_STEREO:
         run_script("Calibrate Stereo", SCRIPT_PATHS["calibrate_stereo"])
 
+    # Use inspect_npz.py to verify calibration results 
+
     if RUN_RECORD_FREETHROWS:
         run_script("Record Free Throws", SCRIPT_PATHS["record_freethrows"])
+
+    # Verify FPS on recorded videos using detect_video_fps.py
 
     if RUN_TRIM_BY_FLASH:
         run_script("Trim Videos by Flash", SCRIPT_PATHS["trim_by_flash"])

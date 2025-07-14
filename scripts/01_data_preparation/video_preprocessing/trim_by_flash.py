@@ -23,9 +23,9 @@ from pathlib import Path
 # ========================================
 
 ATHLETE = "kenny"
-SESSION = "session_001"
+SESSION = "session_test"
 
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.hevc']
+VIDEO_EXTENSIONS = ['.avi', '.mp4', '.mov', '.hevc']
 RESIZE_DIMENSIONS = (640, 480)
 
 START_HSV_LOWER = np.array([0, 0, 200])      # white flash
@@ -51,9 +51,9 @@ raw_left_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
 raw_right_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
 raw_ball_dir = session_dir / "videos" / "ball_tracking" / "raw"
 
-processed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "left"
-processed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
-processed_ball_dir = session_dir / "videos" / "ball_tracking" / "processed"
+trimmed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "left"
+trimmed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
+trimmed_ball_dir = session_dir / "videos" / "ball_tracking" / "trimmed"
 
 # ========================================
 # Flash Detection Function
@@ -122,9 +122,9 @@ def trim_video_by_flash(input_path, output_path):
 # ========================================
 
 video_sets = [
-    {"input": raw_left_dir,  "output": processed_left_dir},
-    {"input": raw_right_dir, "output": processed_right_dir},
-    {"input": raw_ball_dir,  "output": processed_ball_dir},
+    {"input": raw_left_dir,  "output": trimmed_left_dir},
+    {"input": raw_right_dir, "output": trimmed_right_dir},
+    {"input": raw_ball_dir,  "output": trimmed_ball_dir},
 ]
 
 for set_info in video_sets:

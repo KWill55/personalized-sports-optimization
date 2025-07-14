@@ -28,7 +28,7 @@ const int IR_PIN = 11;            // pin connected to IR receiver
 const int START_LED_PIN = 12;    // pin connected to start LEDs
 const int STOP_LED_PIN = 10;     // pin connected to stop LEDs 
 
-const int FLASH_DURATION = 75;   //Flash duration in milliseconds 
+const int FLASH_DURATION = 15;   //Flash duration in milliseconds 
 
 // ================================
 // IR Receiver Setup

@@ -12,11 +12,14 @@ from pathlib import Path
 # Configuration Constants
 # ========================================
 
-ATHLETE = "Kenny"
+ATHLETE = "kenny"
 SESSION = "session_001"
 
-VIDEO_EXTENSIONS = ['.mp4', '.mov', '.hevc']  # Supported formats
+VIDEO_EXTENSIONS = ['.avi', '.mp4', '.mov', '.hevc']  # Supported formats
 RESIZE_DIMENSIONS = (640, 480)     # Display size in GUI
+
+INPUT_SUBDIR = "videos/ball_tracking/raw" 
+OUTPUT_SUBDIR = "videos/ball_tracking/trimmed"
 
 # ========================================
 # Paths and Directories
@@ -33,10 +36,10 @@ raw_left_dir = session_dir / "videos" / "player_tracking" / "raw" / "left"
 raw_right_dir = session_dir / "videos" / "player_tracking" / "raw" / "right"
 raw_ball_dir = session_dir / "videos" / "ball_tracking" / "raw"
 
-# processed video directories
-processed_left_dir = session_dir / "videos" / "player_tracking" / "processed" / "left"
-processed_right_dir = session_dir / "videos" / "player_tracking" / "processed" / "right"
-processed_ball_dir = session_dir / "videos" / "ball_tracking" / "processed"
+# trimmed video directories
+trimmed_left_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "left"
+trimmed_right_dir = session_dir / "videos" / "player_tracking" / "trimmed" / "right"
+trimmed_ball_dir = session_dir / "videos" / "ball_tracking" / "trimmed"
 
 # ========================================
 # Video Trimmer Class
@@ -121,8 +124,8 @@ class VideoTrimmer:
     # ========================================
 
     def load_video_folder(self):
-        input_dir = Path(SESSION_FOLDER) / INPUT_SUBDIR
-        output_dir = Path(SESSION_FOLDER) / OUTPUT_SUBDIR
+        input_dir = Path(session_dir) / INPUT_SUBDIR
+        output_dir = Path(session_dir) / OUTPUT_SUBDIR
 
         if not input_dir.exists():
             print(f"Input folder not found: {input_dir}")
@@ -146,7 +149,7 @@ class VideoTrimmer:
 
 
     def load_video(self):
-        # If all videos are processed, exit GUI
+        # If all videos are trimmed, exit GUI
         if self.video_index >= len(self.video_files):
             print("All videos done!")
             self.master.quit()

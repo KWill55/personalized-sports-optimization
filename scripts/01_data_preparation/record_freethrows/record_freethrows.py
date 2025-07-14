@@ -2,10 +2,11 @@
 Title: record_freethrows.py 
 
 Purpose
-    Record free throws through a GUI 
+    Record free throws 
 
 Output
-    - Three video feeds
+    - Combined video from both cameras
+    - Video for 
 
 Usage 
     - GUI has a record and stop recording button
@@ -20,6 +21,13 @@ import tkinter as tk
 from tkinter import Label, Button
 from PIL import Image, ImageTk
 
+# promised settings on amazon: 
+# 30fps@1080P and 60fps@720p and 100fps@480P
+#Label	Resolution (W × H)	Aspect Ratio
+#30FPS --> 1080p	1920 × 1080	16:9	
+#60FPS --> 720p	1280 × 720	16:9
+#100FPS --> 480p	640 × 480	4:3	
+
 # =========================
 # Config
 # =========================
@@ -30,7 +38,9 @@ CAMERA_THIRD_INDEX = 3
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
 ATHLETE = "kenny"
-SESSION = "session_001"
+SESSION = "session_test"
+
+FPS = 30
 
 # =========================
 # Paths
@@ -50,24 +60,22 @@ for path in video_dirs.values():
 # =========================
 # Open Cameras
 # =========================
+
 caps = {
     "left": cv.VideoCapture(CAMERA_LEFT_INDEX),
     "right": cv.VideoCapture(CAMERA_RIGHT_INDEX),
     "third": cv.VideoCapture(CAMERA_THIRD_INDEX)
 }
 
-for cap in caps.values():
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-
-actual_fps = {}
 for name, cap in caps.items():
-    if not cap.isOpened():
-        print(f"❌ Could not open {name} camera.")
-        exit()
-    fps = cap.get(cv.CAP_PROP_FPS)
-    actual_fps[name] = fps if fps > 1 else 30
-    print(f"{name} camera FPS: {actual_fps[name]}")
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH) # set frame width
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT) # set frame height
+    cap.set(cv.CAP_PROP_FPS, FPS) # set FPS
+    
+    # test if camera has correct FPS 
+    actual_fps = cap.get(cv.CAP_PROP_FPS)
+    print(f"[{name.upper()}] Requested {FPS} FPS, camera reports: {actual_fps:.2f}")
+
 
 # =========================
 # Tkinter GUI Setup
@@ -87,7 +95,7 @@ status_text.set("Status: Idle")
 def get_next_freethrow_number():
     max_count = 0
     for path in video_dirs.values():
-        count = len(list(path.glob("freethrow*.mp4")))
+        count = len(list(path.glob("freethrow*.avi")))
         max_count = max(max_count, count)
     return max_count + 1
 
@@ -104,13 +112,14 @@ def toggle_recording():
             if not ret:
                 continue
             h, w = frame.shape[:2]
-            filename = f"freethrow{throw_num}.mp4"
+            filename = f"freethrow{throw_num}.avi"
             filepath = video_dirs[name] / filename
             print(f"💾 Saving {name} feed to: {filepath}")
-            fourcc = cv.VideoWriter_fourcc(*'mp4v')
-            writers[name] = cv.VideoWriter(str(filepath), fourcc, actual_fps[name], (w, h))
+            fourcc = cv.VideoWriter_fourcc(*'MJPG')
+            writers[name] = cv.VideoWriter(str(filepath), fourcc, FPS, (w, h))
+
     else:
-        print("🛑 Stopped recording.")
+        print("Stopped recording.")
         status_text.set("Status: Idle")
         for writer in writers.values():
             writer.release()
@@ -122,7 +131,7 @@ def update_frames():
         if not ret:
             continue
 
-        frame = cv.resize(frame, (426, 240))  # Resize to fit in UI
+        frame = cv.resize(frame, (426, 240))  # Resize for now to fit in UI
         frame_rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
         images[name] = img
@@ -156,4 +165,3 @@ for cap in caps.values():
 for writer in writers.values():
     writer.release()
 cv.destroyAllWindows()
-

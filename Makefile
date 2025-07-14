@@ -123,6 +123,10 @@ record_video: ## Recrord a video
 	@echo "Recording a video..."
 	python $(helpers_dir)/record_video.py
 
+manual_trim: ## Manually trim video folder
+	@echo "Manually trimming video folder..." 
+	python $(helpers_dir)/manual_trim.py
+
 
 # ======================================== 
 # Phase 2: Extract player and ball metrics
