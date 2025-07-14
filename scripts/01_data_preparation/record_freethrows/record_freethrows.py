@@ -27,6 +27,9 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import Label, Button
 from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
+import tkinter as tk
+from tkinter import Label, Button
 
 
 # Label | Res (W×H) | A Ratio | FPS    | Notes
@@ -37,13 +40,16 @@ from PIL import Image, ImageTk
 
 ### TODO ###
 # i should display the video resolution before and after the submatrix 
+# make iphone 60FPS 
+# keep 1080p for ball tracking 
+# find a good way to toggle some comments on/off with a flag or something 
 
 # =========================
 # Config
 # =========================
 CAMERA_LEFT_INDEX = 0
-CAMERA_RIGHT_INDEX = 2
-CAMERA_THIRD_INDEX = 4
+CAMERA_RIGHT_INDEX = 1
+CAMERA_THIRD_INDEX = 3
 
 ATHLETE = "kenny"
 SESSION = "session_test"
@@ -51,6 +57,13 @@ SESSION = "session_test"
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
 FPS = 60
+
+BORDER_COLORS = {
+    "left": "red",
+    "right": "blue",
+    "third": "green"
+}
+BORDER_THICKNESS = 5
 
 # =========================
 # Paths and Directories 
@@ -171,10 +184,12 @@ class VideoRecorder:
 # Free Throw Recorder App 
 # ========================= 
 class FreeThrowRecorderApp:
-    
+
     def __init__(self, root):
         self.root = root
         self.root.title("Free Throw Recorder")
+        self.root.resizable(True, True)
+        self.root.geometry("1800x1200")  # adjust as needed
         self.camera_manager = CameraManager()
         self.recorder = VideoRecorder(session_dir)
 
@@ -186,17 +201,63 @@ class FreeThrowRecorderApp:
         self.update_frames()
 
     def setup_gui(self):
-        frame_top = tk.Frame(self.root)
+        # Main container
+        main_frame = tk.Frame(self.root)
+        main_frame.pack(pady=10)
+
+        # ---- TOP ROW: Left and Right Feeds ----
+        frame_top = tk.Frame(main_frame)
         frame_top.pack()
 
-        for name in ["left", "right", "third"]:
-            self.labels[name] = Label(frame_top)
-            self.labels[name].pack(side=tk.LEFT, padx=5)
+        self.labels["left"] = Label(frame_top)
+        self.labels["left"].pack(side=tk.LEFT, padx=5)
 
-        Button(self.root, text="Start/Stop Recording", command=self.toggle_recording, height=2, width=30).pack(pady=10)
-        Label(self.root, textvariable=self.status_text, font=("Helvetica", 14)).pack()
+        self.labels["right"] = Label(frame_top)
+        self.labels["right"].pack(side=tk.LEFT, padx=5)
+
+        # ---- BOTTOM ROW: Button + Legend + Ball Feed ----
+        frame_bottom = tk.Frame(main_frame)
+        frame_bottom.pack(pady=10)
+
+        # Button on the LEFT
+        button_frame = tk.Frame(frame_bottom)
+        button_frame.pack(side=tk.LEFT, padx=10)
+        Button(button_frame, text="Start/Stop Recording",
+            command=self.toggle_recording, height=2, width=20).pack()
+
+        # Legend in the MIDDLE
+        legend_frame = tk.Frame(frame_bottom)
+        legend_frame.pack(side=tk.LEFT, padx=20)
+
+        for name, color in BORDER_COLORS.items():
+            key_frame = tk.Frame(legend_frame)
+            key_frame.pack(anchor="w", pady=5)
+
+            # Colored square
+            color_label = tk.Label(key_frame, width=2, height=1, bg=color)
+            color_label.pack(side=tk.LEFT)
+
+            # Text label
+            if name == "left":
+                text = "Left Camera (640x640)"
+            elif name == "right":
+                text = "Right Camera (640x640)"
+            else:
+                text = "Ball Camera (1920×1080)"
+
+            tk.Label(key_frame, text=text).pack(side=tk.LEFT, padx=5)
+
+        # Ball feed on the RIGHT
+        self.labels["third"] = Label(frame_bottom)
+        self.labels["third"].pack(side=tk.LEFT, padx=10)
+
+        # Status text UNDER the button
+        Label(button_frame, textvariable=self.status_text, font=("Helvetica", 14)).pack(pady=10)
+
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+
 
     def toggle_recording(self):
         if not self.recorder.is_recording():
@@ -224,16 +285,24 @@ class FreeThrowRecorderApp:
             if name in ["left", "right"]:
                 frame = frame[40:680, 320:960]  # crop center 640x640
 
-            # Resize and convert for GUI display (keep GUI size = 640x640)
-            frame_display = cv.resize(frame, (640, 640))
+            # Resize for display (preserve correct aspect ratio for third)
+            if name in ["left", "right"]:
+                frame_display = cv.resize(frame, (640, 640))
+
+            else:  # third camera (shrink slightly but keep aspect ratio)
+                frame_display = cv.resize(frame, (760, 427)) # 16:9 aspect ratio
+
+            # Convert to RGB and add border
             frame_rgb = cv.cvtColor(frame_display, cv.COLOR_BGR2RGB)
-            img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
+            pil_img = Image.fromarray(frame_rgb)
+            pil_img = ImageOps.expand(pil_img, border=BORDER_THICKNESS, fill=BORDER_COLORS[name])
+
+            img = ImageTk.PhotoImage(pil_img)
             self.images[name] = img
             self.labels[name].configure(image=img)
 
             # Save cropped or original frame depending on camera
             frames[name] = frame
-
 
         if self.recorder.is_recording():
             self.recorder.write(frames)
@@ -254,128 +323,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = FreeThrowRecorderApp(root)
     root.mainloop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # set submatrix for left and right cameras 
-#     # if left or right camera:
-#         #basically crop it to where its 640x640 in the center of the 1280x720 frame
-#         #so x will go from 320 to 960 right? and y will go from 40 to 680
-
-# # =========================
-# # Tkinter GUI Setup
-# # =========================
-# root = tk.Tk()
-# root.title("Free Throw Recorder")
-
-# labels = {}
-# images = {}
-# recording = False
-# writers = {}
-# throw_num = 0
-
-# status_text = tk.StringVar()
-# status_text.set("Status: Idle")
-
-# def get_next_freethrow_number():
-#     max_count = 0
-#     for path in video_dirs.values():
-#         count = len(list(path.glob("freethrow*.avi")))
-#         max_count = max(max_count, count)
-#     return max_count + 1
-
-# def toggle_recording():
-#     global recording, writers, throw_num
-#     recording = not recording
-
-#     if recording:
-#         throw_num = get_next_freethrow_number()
-#         status_text.set(f"🎯 Recording freethrow{throw_num}")
-#         writers = {}
-#         for name, cap in caps.items():
-#             ret, frame = cap.read()
-#             if not ret:
-#                 continue
-#             h, w = frame.shape[:2]
-#             filename = f"freethrow{throw_num}.avi"
-#             filepath = video_dirs[name] / filename
-#             print(f"💾 Saving {name} feed to: {filepath}")
-#             fourcc = cv.VideoWriter_fourcc(*'MJPG')
-#             writers[name] = cv.VideoWriter(str(filepath), fourcc, FPS, (w, h))
-
-#     else:
-#         print("Stopped recording.")
-#         status_text.set("Status: Idle")
-#         for writer in writers.values():
-#             writer.release()
-#         writers = {}
-
-# def update_frames():
-#     for name, cap in caps.items():
-#         ret, frame = cap.read()
-#         if not ret:
-#             continue
-
-#         frame = cv.resize(frame, (426, 240))  # Resize for now to fit in UI
-#         frame_rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-#         img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
-#         images[name] = img
-#         labels[name].configure(image=img)
-
-#         if recording and name in writers:
-#             writers[name].write(cv.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT)))  # save full res
-
-#     root.after(15, update_frames)
-
-# # =========================
-# # Create GUI Components
-# # =========================
-# frame_top = tk.Frame(root)
-# frame_top.pack()
-
-# for name in ["left", "right", "third"]:
-#     labels[name] = Label(frame_top)
-#     labels[name].pack(side=tk.LEFT, padx=5)
-
-# Button(root, text="Start/Stop Recording", command=toggle_recording, height=2, width=30).pack(pady=10)
-# Label(root, textvariable=status_text, font=("Helvetica", 14)).pack()
-
-# update_frames()
-# root.protocol("WM_DELETE_WINDOW", root.quit)
-# root.mainloop()
-
-# # Cleanup
-# for cap in caps.values():
-#     cap.release()
-# for writer in writers.values():
-#     writer.release()
-# cv.destroyAllWindows()
