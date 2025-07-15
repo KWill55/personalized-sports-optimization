@@ -1,27 +1,28 @@
 """
 Title: Video Player for AVI Files
 
-Status bar label is used to display changing things like current frame, 
-Video info label is used to display static information about the current video clip
+Description:
+    The purpose of this module is to provide a GUI-based video player for AVI files.
+    It allows users to load a folder containing AVI files, navigate through them, and display video.
+    Information such as resolution, duration, FPS, and frame count are displayed.
 
+Inputs:
+    - Folder containing video files
+
+Usage: 
+    - Load a folder conttaining video files
+    - Navigate through the videos using buttons
+
+Outputs
+    - Displays video files in GUI 
+    - Displays video information such as resolution, duration, FPS, and frame count
+
+Last Updated: 15 July 2025
 """
 
 ### TODO ###:
-# make this reusable for 2D pose estimation videos and other video types besides .avi 
-# make borders around the video frames 
-# make the video player more visually appealing
-
-### Done ###
-# make load folder start at session directory 
-# make sure videos are displayed in correct resolution 
-# make going to next or previous frame update the displayed frame 
-# make video info label to display static inforatmino about current video clip
-# make pressing the play button repeat the clip from the beginning 
-
-### IDeas ###
-# for the 2d pose estimation visualization, see both visualizations side by side connected again. during processing just split the image and then
-# sew them back together for visualization
-# show which frame is currently displayed for each side out of how many total frames each side has 
+# make this reusable for 2D pose estimation videos and other video types besides .avi (such as .mp4)
+# maybe switch this file to be in shared if it is used by multiple scripts (I think it will be) 
 
 import cv2
 import os
@@ -58,8 +59,16 @@ class VideoPlayerApp:
         self.playing = False
 
         # UI Elements
-        self.label = Label(root)
+        Label(root, text="AVI Video Player", font=("Helvetica", 24, "bold")).pack(pady=(10, 2))
+
+        # Create a frame to act as a border for video display
+        video_frame_container = tk.Frame(root, bg="black", padx=5, pady=5)
+        video_frame_container.pack(pady=10)
+
+        # Place the video display label inside the frame
+        self.label = Label(video_frame_container)
         self.label.pack()
+
 
         control_frame = tk.Frame(root)
         control_frame.pack(pady=10)
@@ -74,18 +83,21 @@ class VideoPlayerApp:
         Button(frame_control, text="<< Frame", command=self.prev_frame).grid(row=0, column=0, padx=5)
         Button(frame_control, text="Frame >>", command=self.next_frame).grid(row=0, column=1, padx=5)
 
-        # label to display video clip title 
-        Label(root, text="Video Clip Info", font=("Helvetica", 16, "bold")).pack(pady=(10, 2))
+        # Create a container frame for the info box
+        info_container = tk.Frame(root, highlightbackground="black", highlightthickness=5, bd=0, padx=10, pady=10)
+        info_container.pack(pady=15)
 
-        # label to display static video information
-        self.video_info = tk.StringVar()
-        self.video_info.set("No video loaded")
-        Label(root, textvariable=self.video_info, font=("Helvetica", 12)).pack(pady=5)
+        # Add a title inside the container
+        Label(info_container, text="Video Clip Info", font=("Helvetica", 18, "bold")).pack(pady=(5, 10))
 
-        # label to display video frame info 
-        self.status = tk.StringVar()
-        self.status.set("No folder loaded")
-        Label(root, textvariable=self.status, font=("Helvetica", 12)).pack(pady=10)
+        # Static video info
+        self.video_info = tk.StringVar(value="No videos loaded")
+        Label(info_container, textvariable=self.video_info, font=("Helvetica", 15)).pack(pady=2)
+
+        # Dynamic frame info
+        self.status = tk.StringVar(value="Press 'Load Folder' to select videos")
+        Label(info_container, textvariable=self.status, font=("Helvetica", 15)).pack(pady=0)
+
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -144,9 +156,15 @@ class VideoPlayerApp:
         if self.cap:
             current_frame = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
             total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            filename = os.path.basename(self.video_files[self.current_index])
-            self.status.set(f"Current Frame: {current_frame}/{total_frames}")
+            fps = self.cap.get(cv2.CAP_PROP_FPS)
 
+            # Calculate elapsed time
+            elapsed_time = current_frame / fps if fps > 0 else 0
+            total_time = total_frames / fps if fps > 0 else 0
+
+            self.status.set(
+                f"Current Frame: {current_frame}/{total_frames}  |  Elapsed Time: {elapsed_time:.2f}s/{total_time:.2f}s"
+            )
 
 
     def toggle_play(self):
