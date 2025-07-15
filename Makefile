@@ -77,6 +77,10 @@ record_freethrows: ## Record a freethrow session
 preprocessing-header: ## ✂️  Preprocssing Videos
 	@:
 
+combine_player_feeds: ## combine player feeds
+	@echo "Combining left and right player feeds..."
+	python $(preprocessing_dir)/combine_player_feeds.py
+
 trim_by_flash: ## Automatic trimming via flashes
 	@echo "Trimming video clips via flash..."
 	python $(preprocessing_dir)/trim_by_flash.py
@@ -98,6 +102,10 @@ helpers1-header: ## 👋 Helpers (Phase 1)
 identify_cameras: ## Camera identification GUI
 	@echo "Opening GUI to identify camera indices..."
 	python $(helpers_dir)/identify_cameras.py
+
+play_avi_videos: ## GUI for interacting with AVI videos in a folder
+	@echo "Opening GUI to interact with AVI videos..."
+	python $(helpers_dir)/play_avi_videos.py
 
 tune_intrinsics: ## verify cameras can see checkerboard
 	@echo "Opening camera to identify checkerboard"
