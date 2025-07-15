@@ -103,10 +103,6 @@ identify_cameras: ## Camera identification GUI
 	@echo "Opening GUI to identify camera indices..."
 	python $(helpers_dir)/identify_cameras.py
 
-play_avi_videos: ## GUI for interacting with AVI videos in a folder
-	@echo "Opening GUI to interact with AVI videos..."
-	python $(helpers_dir)/play_avi_videos.py
-
 tune_intrinsics: ## verify cameras can see checkerboard
 	@echo "Opening camera to identify checkerboard"
 	python $(helpers_dir)/tune_intrinsics.py
@@ -283,15 +279,28 @@ train_baseline_models: ## Train ML models
 helpers3-header: ## 👋 Helpers (Phase 3)
 	@:
 
-
 # ======================================== 
-# Tools
+# Utilities
 # ========================================
-tools-header: ## 🛠  Tools
+divider7-header: ## -------------------------------------
+	@:
+util-header: ## UTILITIES
+	@:
+divider8-header: ## -------------------------------------
 	@:
 
-rename_freethrows: ## Rename files in bulk
-	python tools/rename_freethrows.py
+# ----------------------------------------
+# Paths and Directories  
+# ----------------------------------------
+util_dir := utils
+
+
+util1-header: ## 🛠 Utilities
+	@: 
+
+play_avi_videos: ## GUI for interacting with AVI videos in a folder
+	@echo "Opening GUI to interact with AVI videos..."
+	python $(util_dir)/play_avi_videos.py
 
 # ======================================== 
 # clean 

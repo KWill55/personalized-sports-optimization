@@ -41,7 +41,7 @@ SESSION = "session_test"
 # =========================
 # Paths and Directories 
 # =========================
-base_dir = Path(__file__).resolve().parents[3]
+base_dir = Path(__file__).resolve().parents[2]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 
 # =========================
