@@ -52,20 +52,20 @@ helpers_dir := $(prep_dir)/helpers
 calibrate-header: ## 🔧 Calibrate Camera System
 	@: 
 
-check_cb_detection: ## Step 1 - Ensure cameras can see cb. 
+check_cb_detection: ## Step 1 - Ensure cameras can see CB grid. 
 	@echo "Opening camera feeds to ensure cb detection"
-	python $(calibrate_dir)
+	python $(calibrate_dir)/check_cb_detection.py
 
-capture_cb_pairs: ## Step 1 - Capture calibration pairs
+capture_cb_pairs: ## Step 2 - Capture calibration pairs of CB grid.
 	@echo "Capturing image pairs for calibration..."
 	python $(calibrate_dir)/capture_cb_pairs.py
 
-calibrate_stereo: ## Step 2 - Stereo Calibration (int/ext)
+calibrate_stereo: ## Step 3 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
 	python $(calibrate_dir)/calibrate_stereo.py
 
-inspect_calibration: ## Inspect .npz file contents
-	@echo "Inspecting .npz file..."
+inspect_calibration: ## Step 4 - Inspect .npz file contents
+	@echo "Printing calibration file paramters to terminal..."
 	python $(calibrate_dir)/inspect_calibration.py
 
 # ----------------------------------------
@@ -85,21 +85,13 @@ record_freethrows: ## Record a freethrow session
 preprocessing-header: ## ✂️  Preprocssing Videos
 	@:
 
+trim_freethrows: ## GUI to trim freethrows manually
+	@echo "Opening GUI to trim freethrows..."
+	python $(preprocessing_dir)/trim_freethrows.py
+
 combine_player_feeds: ## combine player feeds
 	@echo "Combining left and right player feeds..."
 	python $(preprocessing_dir)/combine_player_feeds.py
-
-trim_by_flash: ## Automatic trimming via flashes
-	@echo "Trimming video clips via flash..."
-	python $(preprocessing_dir)/trim_by_flash.py
-
-downsample_videos: ## Downsample trimmed videos 
-	@echo "Downsampling video clips..."
-	python $(preprocessing_dir)/downsample_videos.py
-
-synchronize_videos: ## synchronize downsampled videos
-	@echo "Synchronizing video clips..."
-	python $(preprocessing_dir)/synchronize_videos.py
 
 # ----------------------------------------
 # Helpers
@@ -110,30 +102,6 @@ helpers1-header: ## 👋 Helpers (Phase 1)
 identify_cameras: ## Camera identification GUI
 	@echo "Opening GUI to identify camera indices..."
 	python $(helpers_dir)/identify_cameras.py
-
-tune_intrinsics: ## verify cameras can see checkerboard
-	@echo "Opening camera to identify checkerboard"
-	python $(helpers_dir)/tune_intrinsics.py
-
-detect_video_fps: ## Detect FPS of a video
-	@echo "Detecting video FPS..."
-	python $(helpers_dir)/detect_video_fps.py
-
-test_fps: ## Test FPS extraction
-	@echo "Testing FPS script..."
-	python $(helpers_dir)/test_fps.py
-
-test_dual_cameras: ## open 2 camera streams
-	@echo "Opening 2 camera streams..."
-	python $(helpers_dir)/test_dual_cameras.py
-
-record_video: ## Recrord a video
-	@echo "Recording a video..."
-	python $(helpers_dir)/record_video.py
-
-manual_trim: ## Manually trim video folder
-	@echo "Manually trimming video folder..." 
-	python $(helpers_dir)/manual_trim.py
 
 
 # ======================================== 
@@ -172,26 +140,17 @@ detect_phases: ## Detect motion phases
 player-header: ## ⛹️  Player Tracking
 	@:
 
-extract_2d_keypoints: ## Detect 2D keypoints
+extract_2d_keypoints: ## Extract 2D keypoints from videos
 	python $(player_dir)/extract_2d_keypoints.py
 
-detect_3d_keypoints: ## Triangulate 3D keypoints
-	python $(player_dir)/detect_3d_keypoints.py
+extract_3d_keypoints: ## Triangulate 3D keypoints from 2D keypoints
+	python $(player_dir)/extract_3d_keypoints.py
 
 visualize_2d_keypoints: ## Visualize 2D keypoints
 	python $(player_dir)/visualize_2d_keypoints.py
 
 visualize_3d_keypoints: ## Visualize 3D keypoints
 	python $(player_dir)/visualize_3d_keypoints.py
-
-plot_kin_timeseries: ## Plot time-series kinematics
-	python $(player_dir)/plot_kinematics_time_series.py
-
-plot_release_kinematics: ## Plot release metrics
-	python $(player_dir)/plot_release_kinematics.py
-
-plot_vel_timeseries: ## Plot velocity profiles
-	python $(player_dir)/plot_velocities_time_series.py
 
 # ----------------------------------------
 # Ball Tracking
@@ -201,27 +160,6 @@ ball-header: ## 🏀 Ball Tracking
 
 detect_makes: ## Detect ball metrics
 	python $(ball_dir)/detect_makes.py
-
-backboard_contact: ## Detect backboard contact
-	python $(metrics_dir)/backboard_contact.py
-
-backspin: ## Estimate backspin
-	python $(metrics_dir)/backspin.py
-
-elbow_release_frame: ## Detect elbow release frame
-	python $(metrics_dir)/elbow_release_frame.py
-
-release_angle: ## Measure release angle
-	python $(metrics_dir)/release_angle.py
-
-rim_contact: ## Detect rim contact
-	python $(metrics_dir)/rim_contact.py
-
-track_ball_arc: ## Track ball arc
-	python $(metrics_dir)/track_ball_arc.py
-
-velocity: ## Calculate velocity
-	python $(metrics_dir)/velocity.py
 
 # ----------------------------------------
 # Summary Builder
