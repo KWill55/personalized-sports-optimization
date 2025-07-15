@@ -41,7 +41,7 @@ input_video_dirs = {
 }
 
 # Output video directory 
-output_video_dir = session_dir / "videos" / "player_tracking" / "combined"
+output_video_dir = session_dir / "videos" / "player_tracking" / "synchronized"
 output_video_dir.mkdir(parents=True, exist_ok=True)
 
 

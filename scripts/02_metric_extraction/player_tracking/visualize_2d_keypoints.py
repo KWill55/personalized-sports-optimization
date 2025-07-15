@@ -1,96 +1,152 @@
+"""
+Title: Visualize 2D Keypoints on Player Tracking Videos
+
+Description:
+    This script visualizes 2D keypoints on synchronized player tracking videos using previously
+    extracted CSV keypoint data. It draws skeletal landmarks and saves the annotated stitched video.
+
+Inputs:
+    - Original synchronized video (left + right views combined, 1280x640)
+    - Two CSV files containing 2D keypoints for left and right views
+
+Usage: 
+    - Running the script produces the visualizations 
+
+Outputs:
+    - Annotated video with drawn skeletons for both views side by side
+"""
+
 import cv2
 import pandas as pd
-import numpy as np
 from pathlib import Path
 
 # ========================================
-# Config
+# Configuration
 # ========================================
-
-ATHLETE = "kenny"
-SESSION = "session_001"
-VIEW = "right"  # "left" or "right"
-DRAW_DELAY_MS = 33  # ~30 FPS playback
-
-
-# ========================================
-# Paths
-# ========================================
-
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[2]
-session_dir = base_dir / ATHLETE / SESSION
-
-csv_folder = session_dir / "metrics" / "player_tracking_metrics" / "time_series" / "2d_csvs"
-video_folder = session_dir / "videos" / "player_tracking" / "synchronized" / VIEW
-
-# ========================================
-# MediaPipe COCO-style landmark connections
-# ========================================
-
 POSE_CONNECTIONS = [
-    (11, 13), (13, 15),  # left arm
-    (12, 14), (14, 16),  # right arm
-    (23, 25), (25, 27),  # left leg
-    (24, 26), (26, 28),  # right leg
-    (11, 12),            # shoulders
-    (23, 24),            # hips
-    (11, 23), (12, 24),  # torso
-    (0, 11), (0, 12),    # head to shoulders
+    (11, 13), (13, 15),  # Left arm
+    (12, 14), (14, 16),  # Right arm
+    (11, 12),  # Shoulders
+    (23, 24),  # Hips
+    (11, 23), (12, 24),  # Torso
+    (23, 25), (25, 27), (27, 31),  # Left leg
+    (24, 26), (26, 28), (28, 32)   # Right leg
+]
+
+COLORS = {
+    "skeleton": (255, 0, 0),  # Blue Lines
+    "joint": (0, 0, 255)      # Red points
+}
+
+LANDMARK_NAMES = [
+    "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer",
+    "left_ear", "right_ear", "mouth_left", "mouth_right",
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "left_pinky", "right_pinky",
+    "left_index", "right_index", "left_thumb", "right_thumb",
+    "left_hip", "right_hip", "left_knee", "right_knee",
+    "left_ankle", "right_ankle", "left_heel", "right_heel",
+    "left_foot_index", "right_foot_index"
 ]
 
 # ========================================
-# Process each CSV/video pair
+# Paths and Parameters
 # ========================================
 
-csv_files = sorted(csv_folder.glob(f"*_{VIEW}_2d.csv"))
+base_dir = Path(__file__).resolve().parents[3]
+session_dir = base_dir / "data" / "kenny" / "session_test"
 
-for csv_path in csv_files:
-    clip_name = csv_path.name.replace(f"_{VIEW}_2d.csv", "")
-    video_path = video_folder / f"{clip_name}.mp4"
+videos_dir = session_dir / "videos/player_tracking/synchronized"
+keypoints_dir = session_dir / "metrics/2d_keypoints"
+output_dir = session_dir / "videos/player_tracking/2d"
+output_dir.mkdir(parents=True, exist_ok=True)
 
-    if not video_path.exists():
-        print(f"[WARNING] Skipping {clip_name}: video not found.")
-        continue
+# ========================================
+# Keypoint Visualizer Class
+# ========================================
+class KeypointVisualizer:
+    def __init__(self, pose_connections=POSE_CONNECTIONS, colors=COLORS, point_radius=4, line_thickness=2):
+        self.pose_connections = pose_connections
+        self.colors = colors
+        self.point_radius = point_radius
+        self.line_thickness = line_thickness
 
-    print(f"[INFO] Playing: {clip_name}")
+    def load_keypoints(self, csv_path):
+        return pd.read_csv(csv_path)
 
-    # Load CSV
-    df = pd.read_csv(csv_path)
-    keypoints_all = df.drop(columns=["frame"]).values.reshape((-1, 33, 3))  # (num_frames, 33, 3)
+    def draw_skeleton(self, frame, keypoints_row):
+        h, w, _ = frame.shape
+        points = []
 
-    # Load video
-    cap = cv2.VideoCapture(str(video_path))
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        for name in LANDMARK_NAMES:
+            x = keypoints_row[f"{name}_x"]
+            y = keypoints_row[f"{name}_y"]
+            if x != -1 and y != -1:
+                points.append((int(x * w), int(y * h)))
+            else:
+                points.append(None)
 
-    frame_idx = 0
-    while cap.isOpened():
-        success, frame = cap.read()
-        if not success or frame_idx >= len(keypoints_all):
-            break
+        # Draw lines
+        for start, end in self.pose_connections:
+            if points[start] and points[end]:
+                cv2.line(frame, points[start], points[end], self.colors["skeleton"], self.line_thickness)
 
-        keypoints = keypoints_all[frame_idx]
-        frame_h, frame_w = frame.shape[:2]
+        # Draw points
+        for p in points:
+            if p:
+                cv2.circle(frame, p, self.point_radius, self.colors["joint"], -1)
 
-        # Draw keypoints
-        for i, (x, y, v) in enumerate(keypoints):
-            if v > 0.3:
-                cx, cy = int(x * frame_w), int(y * frame_h)
-                cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+        return frame
 
-        # Draw connections
-        for a, b in POSE_CONNECTIONS:
-            if keypoints[a][2] > 0.3 and keypoints[b][2] > 0.3:
-                ax, ay = int(keypoints[a][0] * frame_w), int(keypoints[a][1] * frame_h)
-                bx, by = int(keypoints[b][0] * frame_w), int(keypoints[b][1] * frame_h)
-                cv2.line(frame, (ax, ay), (bx, by), (255, 0, 0), 2)
+    def visualize_from_csv(self, video_path, left_csv, right_csv, output_path):
+        cap = cv2.VideoCapture(str(video_path))
+        left_df = self.load_keypoints(left_csv)
+        right_df = self.load_keypoints(right_csv)
 
-        # Show frame
-        cv2.imshow(f"{clip_name} - {VIEW}", frame)
-        if cv2.waitKey(DRAW_DELAY_MS) & 0xFF == ord('q'):
-            break
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        out = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*'MJPG'), fps, (width, height))
 
-        frame_idx += 1
+        frame_idx = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    cap.release()
-    cv2.destroyAllWindows()
+            # Split frame into left and right
+            mid = width // 2
+            left_frame = frame[:, :mid].copy()
+            right_frame = frame[:, mid:].copy()
+
+            if frame_idx < len(left_df):
+                left_frame = self.draw_skeleton(left_frame, left_df.iloc[frame_idx])
+            if frame_idx < len(right_df):
+                right_frame = self.draw_skeleton(right_frame, right_df.iloc[frame_idx])
+
+            stitched_frame = cv2.hconcat([left_frame, right_frame])
+            out.write(stitched_frame)
+            frame_idx += 1
+
+        cap.release()
+        out.release()
+        print(f"✅ Saved annotated video to {output_path}")
+
+
+# ========================================
+# Batch Processing
+# ========================================
+if __name__ == "__main__":
+    visualizer = KeypointVisualizer()
+
+    for video_path in sorted(videos_dir.glob("*.avi")):
+        stem = video_path.stem  # e.g., freethrow1
+        left_csv = keypoints_dir / f"{stem}_left.csv"
+        right_csv = keypoints_dir / f"{stem}_right.csv"
+        output_path = output_dir / f"{stem}_2d.avi"
+
+        if left_csv.exists() and right_csv.exists():
+            print(f"Processing {video_path.name}...")
+            visualizer.visualize_from_csv(video_path, left_csv, right_csv, output_path)
+        else:
+            print(f"❌ Missing CSV files for {stem}. Skipping.")
