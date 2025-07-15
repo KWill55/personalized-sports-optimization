@@ -52,6 +52,10 @@ helpers_dir := $(prep_dir)/helpers
 calibrate-header: ## 🔧 Calibrate Camera System
 	@: 
 
+check_cb_detection: ## Step 1 - Ensure cameras can see cb. 
+	@echo "Opening camera feeds to ensure cb detection"
+	python $(calibrate_dir)
+
 capture_cb_pairs: ## Step 1 - Capture calibration pairs
 	@echo "Capturing image pairs for calibration..."
 	python $(calibrate_dir)/capture_cb_pairs.py
@@ -59,6 +63,10 @@ capture_cb_pairs: ## Step 1 - Capture calibration pairs
 calibrate_stereo: ## Step 2 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
 	python $(calibrate_dir)/calibrate_stereo.py
+
+inspect_calibration: ## Inspect .npz file contents
+	@echo "Inspecting .npz file..."
+	python $(calibrate_dir)/inspect_calibration.py
 
 # ----------------------------------------
 # Record freethrows
@@ -110,10 +118,6 @@ tune_intrinsics: ## verify cameras can see checkerboard
 detect_video_fps: ## Detect FPS of a video
 	@echo "Detecting video FPS..."
 	python $(helpers_dir)/detect_video_fps.py
-
-inspect_npz: ## Inspect .npz file contents
-	@echo "Inspecting .npz file..."
-	python $(helpers_dir)/inspect_npz.py
 
 test_fps: ## Test FPS extraction
 	@echo "Testing FPS script..."
