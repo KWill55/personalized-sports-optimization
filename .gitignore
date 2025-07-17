@@ -8,3 +8,5 @@ __pycache__/
 *.avi
 *.DS_Store
 *.npz
+*.pdf
+*.pickle
