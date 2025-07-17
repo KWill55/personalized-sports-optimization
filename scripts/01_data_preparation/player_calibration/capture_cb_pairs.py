@@ -1,139 +1,175 @@
 """
-Title: capture_cb_pairs_gui.py
+Title: capture_cb_pairs.py
 
-Purpose:
-    GUI tool to capture synchronized checkerboard images from two webcams.
+Description
+    - Purpose: Capture synchronized stereo checkerboard image pairs for calibration.
+    - Crops center 640x640 from both cameras
+    - Displays combined 1280x640 window
 
-Output:
-    - Saves image pairs to left_calib_dir and right_calib_dir
-    - Images named: left_00.jpg, right_00.jpg, etc.
+Prerequisites:
+    - TODO 
 
 Usage:
-    - GUI displays both camera feeds.
-    - Button click captures synchronized image pair.
-    - Image pair number displayed.
+    - capture at least 10 image pairs of the calibration grid (20-25 is best)
+    - capture the calibration grid at different tilts, depths, corners of visiblity, etc
+    - press 'space' to save combined image
+    - Press 'escape' to exit
+
+Outputs:
+    - Displays combined view and saves cropped, combined 640x640 stereo images.
+
+
 """
 
 import cv2 as cv
 import os
 from pathlib import Path
-import tkinter as tk
-from tkinter import Label, Button
-from PIL import Image, ImageTk
+import threading
+import time
 
-# =========================
+# ========================================
 # Config
-# =========================
-CAMERA_LEFT_INDEX = 0
-CAMERA_RIGHT_INDEX = 1
-FRAME_WIDTH = 1280
-FRAME_HEIGHT = 720
+# ========================================
+CAM_LEFT_INDEX = 1
+CAM_RIGHT_INDEX = 2
+CAM_RESOLUTION = (1280, 720) # 720p
+CROP_SIZE = (640, 640) 
+CHECKERBOARD = (5, 4)  # internal corners
 ATHLETE = "kenny"
-SESSION = "session_001"
+SESSION = "session_test"
 
-# =========================
+FPS = 60 
+
 # Paths
-# =========================
 base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
-left_calib_dir = session_dir / "calibration" / "calib_images" / "left"
-right_calib_dir = session_dir / "calibration" / "calib_images" / "right"
+calib_dir = session_dir / "calibration" / "calib_images"
+calib_dir.mkdir(parents=True, exist_ok=True)
 
-for d in [left_calib_dir, right_calib_dir]:
-    d.mkdir(parents=True, exist_ok=True)
+# ========================================
+# Camera Thread
+# ========================================
+class CameraThread(threading.Thread):
+    def __init__(self, index, name):
+        super().__init__()
+        self.cap = cv.VideoCapture(index)
+        self.cap.set(cv.CAP_PROP_FRAME_WIDTH, CAM_RESOLUTION[0])
+        self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, CAM_RESOLUTION[1])
+        self.cap.set(cv.CAP_PROP_FPS, FPS)
+        self.name = name
+        self.frame = None
+        self.running = True
 
-# =========================
-# Open Cameras
-# =========================
-caps = {
-    "left": cv.VideoCapture(CAMERA_LEFT_INDEX),
-    "right": cv.VideoCapture(CAMERA_RIGHT_INDEX)
-}
+    def run(self):
+        while self.running:
+            ret, frame = self.cap.read()
+            if ret:
+                self.frame = frame
+        self.cap.release()
 
-for cap in caps.values():
-    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    def stop(self):
+        self.running = False
 
-for name, cap in caps.items():
-    if not cap.isOpened():
-        print(f"[ERROR] Could not open {name} camera.")
-        exit()
 
-# =========================
-# Tkinter GUI Setup
-# =========================
-root = tk.Tk()
-root.title("Calibration Image Capture")
+# ========================================
+# Stereo Capture GUI
+# ========================================
+class StereoCaptureGUI:
+    def __init__(self, left_cam, right_cam):
+        self.left_cam = left_cam
+        self.right_cam = right_cam
+        self.pair_id = self.get_next_pair_id()
+        self.status_text = ""
+        self.status_color = (255, 255, 255)
+        self.status_time = 0
 
-labels = {}
-images = {}
-frame_id = 0
+    def get_next_pair_id(self):
+        existing = list(calib_dir.glob("pair_*.png"))
+        return len(existing) + 1
 
-status_text = tk.StringVar()
-status_text.set("Ready to capture image pairs")
+    def crop_center(self, frame):
+        return frame[40:680, 320:960]  # center crop to 640x640
 
-# =========================
-# Helper Functions
-# =========================
-def get_next_image_pair_number():
-    left_images = list(left_calib_dir.glob("left_*.jpg"))
-    return len(left_images)
+    def show_status(self, text, color):
+        self.status_text = text
+        self.status_color = color
+        self.status_time = time.time()
 
-def capture_image_pair():
-    global frame_id
-    retL, frameL = caps["left"].read()
-    retR, frameR = caps["right"].read()
+    def run(self):
+        print("[INFO] Press SPACE to capture a pair (only saves if checkerboard detected). ESC to exit.")
 
-    if not retL or not retR:
-        print("[ERROR] Failed to grab one or both frames.")
-        return
+        while True:
+            if self.left_cam.frame is None or self.right_cam.frame is None:
+                continue
 
-    fnameL = left_calib_dir / f"left_{frame_id:02}.jpg"
-    fnameR = right_calib_dir / f"right_{frame_id:02}.jpg"
-    cv.imwrite(str(fnameL), frameL)
-    cv.imwrite(str(fnameR), frameR)
-    print(f"[INFO] Saved pair #{frame_id}: {fnameL.name}, {fnameR.name}")
-    frame_id += 1
-    status_text.set(f"Captured pair #{frame_id}")
+            # Crop and combine
+            frameL = self.crop_center(self.left_cam.frame)
+            frameR = self.crop_center(self.right_cam.frame)
+            combined = cv.hconcat([frameL, frameR])
 
-def update_frames():
-    for name, cap in caps.items():
-        ret, frame = cap.read()
-        if not ret:
-            continue
+            # Overlay text
+            cv.putText(combined, f"Pair #{self.pair_id}", (20, 30),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+            cv.putText(combined, "SPACE: Capture | ESC: Quit",
+                       (20, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
-        frame = cv.resize(frame, (426, 240))
-        frame_rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        img = ImageTk.PhotoImage(Image.fromarray(frame_rgb))
-        images[name] = img
-        labels[name].configure(image=img)
+            # Show last status message for 1.5 sec
+            if time.time() - self.status_time < 1.5:
+                cv.putText(combined, self.status_text, (20, 100),
+                           cv.FONT_HERSHEY_SIMPLEX, 0.8, self.status_color, 2)
 
-    root.after(15, update_frames)
+            # Show combined feed
+            cv.imshow("Capture Calibration Pairs", combined)
 
-# =========================
-# Create GUI Components
-# =========================
-frame_top = tk.Frame(root)
-frame_top.pack()
+            key = cv.waitKey(1)
+            if key == 27:  # ESC
+                break
+            elif key == 32:  # SPACE
+                self.capture_pair(frameL, frameR, combined)
 
-for name in ["left", "right"]:
-    labels[name] = Label(frame_top)
-    labels[name].pack(side=tk.LEFT, padx=5)
+        print("[INFO] Closing capture window.")
 
-Button(root, text="Capture Image Pair", command=capture_image_pair, height=2, width=30).pack(pady=10)
-Label(root, textvariable=status_text, font=("Helvetica", 14)).pack()
+    def capture_pair(self, frameL, frameR, combined):
+        # Check checkerboard detection in both cameras
+        grayL = cv.cvtColor(frameL, cv.COLOR_BGR2GRAY)
+        grayR = cv.cvtColor(frameR, cv.COLOR_BGR2GRAY)
 
-# =========================
-# Launch
-# =========================
-frame_id = get_next_image_pair_number()
-update_frames()
-root.protocol("WM_DELETE_WINDOW", root.quit)
-root.mainloop()
+        retL, _ = cv.findChessboardCorners(grayL, CHECKERBOARD, None)
+        retR, _ = cv.findChessboardCorners(grayR, CHECKERBOARD, None)
 
-# =========================
-# Cleanup
-# =========================
-for cap in caps.values():
-    cap.release()
-cv.destroyAllWindows()
+        if retL and retR:
+            fname = calib_dir / f"pair_{self.pair_id:02}.png"
+            cv.imwrite(str(fname), combined)
+            print(f"[INFO] Saved {fname.name}")
+            self.show_status(f"Saved pair #{self.pair_id}", (0, 255, 0))
+            self.pair_id += 1
+        else:
+            print("[WARNING] Checkerboard not detected in both cameras. Try again.")
+            self.show_status("Checkerboard NOT detected!", (0, 0, 255))
+
+
+# ========================================
+# Main
+# ========================================
+def main():
+    left_cam = CameraThread(CAM_LEFT_INDEX, "Left")
+    right_cam = CameraThread(CAM_RIGHT_INDEX, "Right")
+    left_cam.start()
+    right_cam.start()
+
+    gui = StereoCaptureGUI(left_cam, right_cam)
+
+    try:
+        gui.run()
+    finally:
+        left_cam.stop()
+        right_cam.stop()
+        left_cam.join()
+        right_cam.join()
+        cv.destroyAllWindows()
+        print("[INFO] Exiting.")
+
+
+if __name__ == "__main__":
+    main()
+

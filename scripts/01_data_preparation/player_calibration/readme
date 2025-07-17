@@ -1,0 +1,63 @@
+## **Order of execution:**
+1. generate_grid.py          # creates printable checkerboard
+2. check_cb_detection.py     # Ensure cameras can detect checkerboard
+3. capture_cb_pairs.py.      # Get image pairs of checkerboard
+4. calibrate_stereo.py.      # Run Stereo calibration
+5. inspect_calibration.py    # Ensures calibration was successful
+
+
+# Player Calibration Workflow
+
+This folder contains all scripts required for stereo camera calibration used in player tracking and free-throw analysis.
+
+---
+
+## **Order of Execution**
+1. **generate_grid.py**  
+   - Generates a printable checkerboard pattern as **PNG and PDF**.
+   - Configure **inner corners** and **square size (cm)** in the script.
+   - Print the PDF at **100% scale** for accurate calibration.
+
+2. **check_cb_detection.py**  
+   - Streams live feed from both cameras.
+   - Ensures cameras can consistently detect the checkerboard.
+   - Displays detection stability and alignment feedback (focal length diff, principal point diff, etc.).
+   - Adjust lenses until detection is stable before proceeding.
+
+3. **capture_cb_pairs.py**  
+   - Captures **synchronized stereo image pairs** of the checkerboard.
+   - Saves combined images (1280x640) for calibration.
+   - Ensure the checkerboard appears in **different positions, angles, and distances** across multiple captures.
+   - Recommended: **15–20 pairs** for robust calibration.
+
+4. **calibrate_stereo.py**  
+   - Processes saved image pairs and performs **stereo calibration**.
+   - Outputs:
+     - Intrinsics (K1, K2)
+     - Distortion coefficients
+     - Rotation (R) and Translation (T)
+     - Projection matrices (P1, P2)
+   - Saves results to:  
+     `data/<ATHLETE>/<SESSION>/calibration/stereo_calibration/stereo_calib.npz`
+
+5. **inspect_calibration.py**  
+   - Loads calibration results and displays:
+     - Numerical parameters (K1, K2, R, T, etc.)
+     - **Undistortion preview**
+     - **Rectification preview with epipolar lines**
+     - **Optional disparity map** for depth verification
+   - Confirms calibration quality visually.
+
+---
+
+## **Important Notes**
+- Keep cameras **fixed after calibration**.
+- During capture:
+  - Vary checkerboard **position** (top, bottom, sides).
+  - Vary **tilt angles** (pitch, yaw, roll).
+  - Vary **distance** (close and far).
+- Good lighting is critical for accurate corner detection.
+
+---
+
+## **Directory Structure**

@@ -1,115 +1,253 @@
 """
-Title: 01_tune_intrinsics.py: Real-Time Intrinsic Calibration Script
+Title: tune_stereo_intrinsics.py - Real-Time Stereo Intrinsic Tuning
 
 Purpose:
-    Allows real-time tuning of camera intrinsics by displaying the camera matrix 
-    and distortion coefficients as the user adjusts the zoom or focus on the lens.
-    Helps align two stereo cameras to have similar focal lengths and minimal distortion
-    before capturing calibration pairs.
-
-Prerequisites:
-    - display a checkerboard pattern in view of the camera.
-    - Set the correct checkerboard dimensions (number of internal corners) and square size.
-    - Adjust CAMERA_INDEX to select the camera you want to tune.
-
-Output:
-    - Displays calibration results (camera matrix and distortion coefficients) every N frames.
-    - No files are saved; this script is for live feedback and physical tuning only.
+    Display side-by-side stereo camera feeds (cropped to 640x640 each),
+    detect checkerboard patterns, and show detection consistency stats.
+    Print camera intrinsics and distortion coefficients every N frames.
 
 Usage:
-    - Run the script and adjust the camera lens.
-    - Press ESC to exit the script.
+    - Place a checkerboard in view.
+    - Press ESC to quit.
 """
+
+"""
+Title: tune_stereo_intrinsics.py - Real-Time Stereo Tuning
+
+Purpose:
+    Provide real-time feedback for physically tuning two cameras before stereo calibration.
+    Displays detection consistency, focal length difference, principal point difference,
+    and horizontal alignment guides.
+
+Features:
+    - Rolling detection success rate with GOOD/LOW status
+    - Focal length difference (fx, fy) and principal point alignment (cx, cy)
+    - Horizontal lines to help align stereo baseline
+    - Color-coded overlays for visual clarity
+    - Lightweight intrinsics computation (feedback only)
+
+Usage:
+    - Place a checkerboard in view of both cameras
+    - Adjust lenses/focus until differences are minimal
+    - Press ESC to quit
+"""
+
+### TODO ###
+# what size calibration grid is ideal? ive just been using the one that opencap uses
 
 import cv2 as cv
 import numpy as np
+import threading
+from collections import deque
 
 # ========================================
 # Config
 # ========================================
-
-CAMERA_RANGE = range(0, 5)  # Indices to try
-CHECKERBOARD = (5, 4)  # (internal corners)
-SQUARE_SIZE = 2.5  # in cm
-CALIBRATE_EVERY = 40
-MAX_CALIBRATION_SAMPLES = 100
-SKIP_FRAMES = True
-
-# ========================================
-# Object Points Setup
-# ========================================
-
-objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32)
-objp[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
-objp *= SQUARE_SIZE
+LEFT_CAM_INDEX = 1
+RIGHT_CAM_INDEX = 2
+CHECKERBOARD = (5, 4)  # internal corners
+SQUARE_SIZE = 2.5  # cm
+CALIBRATE_EVERY = 50
+WINDOW_SIZE = 50
+CAM_RESOLUTION = (1280, 720)
+CROP_SIZE = (640, 640)
+THRESHOLD_DETECT = 0.7
+THRESHOLD_FL = 10  # px
+THRESHOLD_PP = 20  # px
 
 # ========================================
-# Loop Through All Cameras
+# Camera Thread
 # ========================================
+class CameraThread(threading.Thread):
+    def __init__(self, index, name):
+        super().__init__()
+        self.cap = cv.VideoCapture(index)
+        self.cap.set(cv.CAP_PROP_FRAME_WIDTH, CAM_RESOLUTION[0])
+        self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, CAM_RESOLUTION[1])
+        self.cap.set(cv.CAP_PROP_FPS, 30)
+        self.name = name
+        self.frame = None
+        self.running = True
 
-for cam_index in CAMERA_RANGE:
-    print(f"\n[INFO] Trying camera index {cam_index}...")
-    cap = cv.VideoCapture(cam_index)
-    if not cap.isOpened():
-        print(f"[WARNING] Skipping index {cam_index} (not available).")
-        continue
+    def run(self):
+        while self.running:
+            ret, frame = self.cap.read()
+            if ret:
+                self.frame = frame
+        self.cap.release()
 
-    print(f"[INFO] Tuning camera index {cam_index}. Press SPACE to move to next. Press ESC to quit.")
+    def stop(self):
+        self.running = False
 
-    objpoints, imgpoints = [], []
-    frame_count = 0
-    toggle = False
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("[ERROR] Failed to capture frame.")
-            break
+# ========================================
+# Stereo Tuning GUI
+# ========================================
+class StereoTuningGUI:
+    def __init__(self, left_cam, right_cam):
+        self.left_cam = left_cam
+        self.right_cam = right_cam
 
-        toggle = not toggle
-        if SKIP_FRAMES and not toggle:
-            continue
+        # Detection stats
+        self.detections_left = deque(maxlen=WINDOW_SIZE)
+        self.detections_right = deque(maxlen=WINDOW_SIZE)
 
-        frame = cv.resize(frame, (640, 480))
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        # Calibration samples
+        self.objpoints_left, self.imgpoints_left = [], []
+        self.objpoints_right, self.imgpoints_right = [], []
 
-        ret_cb, corners = cv.findChessboardCorners(gray, CHECKERBOARD, None)
+        # Checkerboard object points
+        self.objp = np.zeros((CHECKERBOARD[0] * CHECKERBOARD[1], 3), np.float32)
+        self.objp[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
+        self.objp *= SQUARE_SIZE
 
-        if ret_cb:
-            cv.drawChessboardCorners(frame, CHECKERBOARD, corners, ret_cb)
-            objpoints.append(objp.copy())
-            imgpoints.append(corners)
-            frame_count += 1
+        self.frame_count = 0
+        self.fl_diff_text = ""
+        self.pp_diff_text = ""
+        self.fl_color = (255, 255, 255)
+        self.pp_color = (255, 255, 255)
 
-            if len(objpoints) > MAX_CALIBRATION_SAMPLES:
-                objpoints = objpoints[-MAX_CALIBRATION_SAMPLES:]
-                imgpoints = imgpoints[-MAX_CALIBRATION_SAMPLES:]
+    def process_frame(self):
+        if self.left_cam.frame is None or self.right_cam.frame is None:
+            return None
 
-            if frame_count % CALIBRATE_EVERY == 0 and len(objpoints) >= 10:
-                ret_calib, mtx, dist, _, _ = cv.calibrateCamera(
-                    objpoints, imgpoints, gray.shape[::-1], None, None
-                )
-                print(f"\n[CAM {cam_index} - FRAME {frame_count}] Intrinsic Matrix:")
-                print(np.round(mtx, 2))
-                print("Distortion Coefficients:")
-                print(np.round(dist.ravel(), 4))
+        # Crop frames
+        frameL = self.left_cam.frame[40:680, 320:960]
+        frameR = self.right_cam.frame[40:680, 320:960]
 
-        # Draw overlay
-        cv.putText(frame, f"Cam {cam_index} | Valid Frames: {len(objpoints)}",
-                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        # Convert to gray
+        grayL = cv.cvtColor(frameL, cv.COLOR_BGR2GRAY)
+        grayR = cv.cvtColor(frameR, cv.COLOR_BGR2GRAY)
 
-        cv.imshow("Tune Intrinsics", frame)
-        key = cv.waitKey(1)
+        # Detect checkerboard
+        retL, cornersL = cv.findChessboardCorners(grayL, CHECKERBOARD, None)
+        retR, cornersR = cv.findChessboardCorners(grayR, CHECKERBOARD, None)
 
-        if key == 27:  # ESC to quit all
-            cap.release()
-            cv.destroyAllWindows()
-            exit()
-        elif key == 32:  # SPACE to move to next camera
-            cap.release()
-            cv.destroyAllWindows()
-            break
+        self.detections_left.append(1 if retL else 0)
+        self.detections_right.append(1 if retR else 0)
 
-    print(f"[INFO] Finished tuning cam index {cam_index}.")
+        if retL:
+            cv.drawChessboardCorners(frameL, CHECKERBOARD, cornersL, retL)
+            self.objpoints_left.append(self.objp.copy())
+            self.imgpoints_left.append(cornersL)
+        if retR:
+            cv.drawChessboardCorners(frameR, CHECKERBOARD, cornersR, retR)
+            self.objpoints_right.append(self.objp.copy())
+            self.imgpoints_right.append(cornersR)
 
-print("[INFO] Done with all available cameras.")
+        # Limit sample storage
+        self.objpoints_left = self.objpoints_left[-50:]
+        self.imgpoints_left = self.imgpoints_left[-50:]
+        self.objpoints_right = self.objpoints_right[-50:]
+        self.imgpoints_right = self.imgpoints_right[-50:]
+
+        self.frame_count += 1
+
+        # Quick calibration feedback every N frames
+        if self.frame_count % CALIBRATE_EVERY == 0:
+
+            self.update_intrinsics(grayL.shape[::-1])
+
+        # Combine frames
+        combined = cv.hconcat([frameL, frameR])
+
+        # Draw overlays
+        self.overlay_stats(combined)
+        self.draw_alignment_lines(combined)
+
+        return combined
+
+    def update_intrinsics(self, img_size):
+        # Use only the last 10 samples for speed
+        recent_objpoints_left = self.objpoints_left[-10:]
+        recent_imgpoints_left = self.imgpoints_left[-10:]
+        recent_objpoints_right = self.objpoints_right[-10:]
+        recent_imgpoints_right = self.imgpoints_right[-10:]
+
+        # Ensure enough points exist for calibration
+        if len(recent_objpoints_left) >= 5 and len(recent_objpoints_right) >= 5:
+            # Lightweight calibration with recent samples
+            _, mtxL, _, _, _ = cv.calibrateCamera(recent_objpoints_left, recent_imgpoints_left, img_size, None, None)
+            _, mtxR, _, _, _ = cv.calibrateCamera(recent_objpoints_right, recent_imgpoints_right, img_size, None, None)
+
+            # Compute differences
+            fx_diff = abs(mtxL[0, 0] - mtxR[0, 0])
+            fy_diff = abs(mtxL[1, 1] - mtxR[1, 1])
+            cx_diff = abs(mtxL[0, 2] - mtxR[0, 2])
+            cy_diff = abs(mtxL[1, 2] - mtxR[1, 2])
+
+            # Update overlay text
+            self.fl_diff_text = f"FL Diff: fx={fx_diff:.1f}px fy={fy_diff:.1f}px"
+            self.pp_diff_text = f"PP Diff: cx={cx_diff:.1f}px cy={cy_diff:.1f}px"
+
+            # Color code for GOOD/BAD status
+            self.fl_color = (0, 255, 0) if fx_diff < THRESHOLD_FL and fy_diff < THRESHOLD_FL else (0, 0, 255)
+            self.pp_color = (0, 255, 0) if cx_diff < THRESHOLD_PP and cy_diff < THRESHOLD_PP else (0, 0, 255)
+
+    def overlay_stats(self, combined):
+        successL = sum(self.detections_left)
+        successR = sum(self.detections_right)
+
+        healthyL = (successL / len(self.detections_left)) >= THRESHOLD_DETECT if len(self.detections_left) else False
+        healthyR = (successR / len(self.detections_right)) >= THRESHOLD_DETECT if len(self.detections_right) else False
+
+        statusL = "GOOD" if healthyL else "LOW"
+        statusR = "GOOD" if healthyR else "LOW"
+
+        colorL = (0, 255, 0) if healthyL else (0, 0, 255)
+        colorR = (0, 255, 0) if healthyR else (0, 0, 255)
+
+        # Detection status
+        detect_text = f"Frame: {self.frame_count} | L: {successL}/{len(self.detections_left)} {statusL} | R: {successR}/{len(self.detections_right)} {statusR}"
+        cv.putText(combined, detect_text, (20, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+        # Status under each view
+        cv.putText(combined, statusL, (20, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, colorL, 2)
+        cv.putText(combined, statusR, (640 + 20, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, colorR, 2)
+
+        # Intrinsics feedback
+        cv.putText(combined, self.fl_diff_text, (20, 100), cv.FONT_HERSHEY_SIMPLEX, 0.7, self.fl_color, 2)
+        cv.putText(combined, self.pp_diff_text, (20, 130), cv.FONT_HERSHEY_SIMPLEX, 0.7, self.pp_color, 2)
+
+    def draw_alignment_lines(self, combined):
+        # Horizontal guide lines for baseline alignment
+        height = combined.shape[0]
+        for y in [height // 4, height // 2, (3 * height) // 4]:
+            cv.line(combined, (0, y), (combined.shape[1], y), (0, 255, 255), 1)
+
+    def run(self):
+        print("[INFO] Press ESC to exit.")
+        while True:
+            combined = self.process_frame()
+            if combined is None:
+                continue
+
+            cv.imshow("Stereo Tuning", combined)
+            key = cv.waitKey(1)
+            if key == 27:
+                break
+
+
+# ========================================
+# Main
+# ========================================
+def main():
+    left_cam = CameraThread(LEFT_CAM_INDEX, "Left")
+    right_cam = CameraThread(RIGHT_CAM_INDEX, "Right")
+    left_cam.start()
+    right_cam.start()
+
+    gui = StereoTuningGUI(left_cam, right_cam)
+    try:
+        gui.run()
+    finally:
+        left_cam.stop()
+        right_cam.stop()
+        left_cam.join()
+        right_cam.join()
+        cv.destroyAllWindows()
+        print("[INFO] Exiting.")
+
+
+if __name__ == "__main__":
+    main()
