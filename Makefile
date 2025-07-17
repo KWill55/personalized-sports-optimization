@@ -52,6 +52,10 @@ helpers_dir := $(prep_dir)/helpers
 calibrate-header: ## 🔧 Calibrate Camera System
 	@: 
 
+generate_grid: ## Step 0 - print a calibration grid
+	@echo "Generating calibration grid..."
+	python $(calibrate_dir)/generate_grid.py
+
 check_cb_detection: ## Step 1 - Ensure cameras can see CB grid. 
 	@echo "Opening camera feeds to ensure cb detection"
 	python $(calibrate_dir)/check_cb_detection.py
@@ -64,8 +68,8 @@ calibrate_stereo: ## Step 3 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
 	python $(calibrate_dir)/calibrate_stereo.py
 
-inspect_calibration: ## Step 4 - Inspect .npz file contents
-	@echo "Printing calibration file paramters to terminal..."
+inspect_calibration: ## Step 4 - Ensure calibration was successful
+	@echo "Printing parameters to terminal and opening images..."
 	python $(calibrate_dir)/inspect_calibration.py
 
 # ----------------------------------------
