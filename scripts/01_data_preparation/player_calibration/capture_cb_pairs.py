@@ -26,25 +26,39 @@ import os
 from pathlib import Path
 import threading
 import time
+import yaml
+from pathlib import Path
+
 
 # ========================================
-# Config
+# Config (from project YAML)
 # ========================================
-CAM_LEFT_INDEX = 1
-CAM_RIGHT_INDEX = 2
-CAM_RESOLUTION = (1280, 720) # 720p
-CROP_SIZE = (640, 640) 
-CHECKERBOARD = (5, 4)  # internal corners
-ATHLETE = "kenny"
-SESSION = "session_test"
 
-FPS = 60 
+# Load YAML Config
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
 
-# Paths
+# Camera Parameters
+CAM_LEFT_INDEX = cfg["left_cam_index"]
+CAM_RIGHT_INDEX = cfg["right_cam_index"]
+CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])  # (1280, 720)
+CROP_SIZE = tuple(cfg["crop_size"])  # (640, 640)
+FPS = cfg["stereo_fps"]
+
+# Calibration Parameters
+CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
+
+# ========================================
+# Paths and Directories
+# ========================================
 base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
+session_dir = base_dir / ATHLETE / SESSION
 calib_dir = session_dir / "calibration" / "calib_images"
 calib_dir.mkdir(parents=True, exist_ok=True)
+
 
 # ========================================
 # Camera Thread

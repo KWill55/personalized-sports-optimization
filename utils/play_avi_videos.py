@@ -30,13 +30,19 @@ import tkinter as tk
 from tkinter import filedialog, Label, Button
 from PIL import Image, ImageTk
 from pathlib import Path
+import yaml
 
 # =========================
-# Constant Parameters 
+# Config
 # =========================
 
-ATHLETE = "kenny"
-SESSION = "session_test"
+# Load YAML Config
+config_path = Path(__file__).resolve().parents[1] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # =========================
 # Paths and Directories 

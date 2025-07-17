@@ -32,6 +32,7 @@ import tkinter as tk
 from tkinter import Label, Button
 import time
 import threading
+import yaml
 
 
 # Label | Res (W×H) | A Ratio | FPS    | Notes
@@ -52,37 +53,41 @@ import threading
 # switch to C++ later if I want to do things real time 
 # enable MJPG later 
 
-import cv2 as cv
-import threading
-import time
+# =========================
+# Config (from YAML)
+# =========================
+import yaml
 from pathlib import Path
-import tkinter as tk
-from tkinter import Label, Button
-from PIL import Image, ImageTk, ImageOps
+
+# Load YAML Config
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+# Camera Indices
+CAMERA_LEFT_INDEX = cfg["left_cam_index"]
+CAMERA_RIGHT_INDEX = cfg["right_cam_index"]
+CAMERA_THIRD_INDEX = cfg["third_cam_index"]
+
+# Session Info
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
+
+# Video Settings
+FRAME_WIDTH = cfg["frame_width"]
+FRAME_HEIGHT = cfg["frame_height"]
+FPS_LEFT_RIGHT = cfg["player_tracking_fps"]
+FPS_THIRD = cfg["ball_tracking_fps"]           # Default if not in YAML
+GUI_REFRESH_MS = 30
+
+# Visual Settings
+BORDER_COLORS = {"left": "red", "right": "blue", "third": "green"}
+BORDER_THICKNESS = 5  # Can also move this to YAML if needed
 
 # =========================
-# Config
+# Paths and Directories
 # =========================
-CAMERA_LEFT_INDEX = 1
-CAMERA_RIGHT_INDEX = 2
-CAMERA_THIRD_INDEX = 4
-
-ATHLETE = "kenny"
-SESSION = "session_test"
-
-FRAME_WIDTH = 1280
-FRAME_HEIGHT = 720   
-FPS_LEFT_RIGHT = 60  # Stereo cameras
-FPS_THIRD = 30       # Ball tracking camera
-GUI_REFRESH_MS = 30  # ~30 FPS for GUI
-
-BORDER_COLORS = {"left": "red", "right": "blue", "third": "green"} 
-BORDER_THICKNESS = 5
-
-# =========================
-# Paths and Directories 
-# =========================
-base_dir = Path(__file__).resolve().parents[3]
+base_dir = Path(cfg["base_data_dir"])  # From YAML
 session_dir = base_dir / "data" / ATHLETE / SESSION
 video_dirs = {
     "left": session_dir / "videos" / "player_tracking" / "raw" / "left",

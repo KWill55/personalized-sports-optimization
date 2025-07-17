@@ -3,17 +3,21 @@ import numpy as np
 import csv
 from pathlib import Path
 import math
+import yaml
 
 # from metrics.release_angle import te_release_anglecompu
 # from metrics.elbow_release_frame import find_release_frame
 
 # =========================
-# Configuration Parameters
+# Config
 # =========================
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
 
 # path parameters
-ATHLETE = "kenny"
-SESSION = "session_001"
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # hoop regions (created in create_hoop_regions.py)
 UPPER_HOOP_REGION = ((1223, 362), (1314, 402))

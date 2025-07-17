@@ -32,28 +32,43 @@ Usage:
     - Press ESC to quit
 """
 
-### TODO ###
-# what size calibration grid is ideal? ive just been using the one that opencap uses
 
 import cv2 as cv
 import numpy as np
 import threading
 from collections import deque
+from pathlib import Path
+import yaml
 
 # ========================================
 # Config
 # ========================================
-LEFT_CAM_INDEX = 1
-RIGHT_CAM_INDEX = 2
-CHECKERBOARD = (5, 4)  # internal corners
-SQUARE_SIZE = 2.5  # cm
-CALIBRATE_EVERY = 50
-WINDOW_SIZE = 50
-CAM_RESOLUTION = (1280, 720)
-CROP_SIZE = (640, 640)
-THRESHOLD_DETECT = 0.7
-THRESHOLD_FL = 10  # px
-THRESHOLD_PP = 20  # px
+import yaml
+from pathlib import Path
+
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+# Camera Indices
+LEFT_CAM_INDEX = cfg["left_cam_index"]
+RIGHT_CAM_INDEX = cfg["right_cam_index"]
+
+# Calibration Parameters
+CHECKERBOARD = tuple(cfg["inner_corners"])    # (columns, rows)
+SQUARE_SIZE = cfg["square_size_cm"]           # cm
+CALIBRATE_EVERY = cfg["calibrate_every"]
+WINDOW_SIZE = cfg["success_window"]
+
+# Video Parameters
+CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])
+CROP_SIZE = tuple(cfg["crop_size"])  # (width, height)
+
+# Detection Thresholds
+THRESHOLD_DETECT = cfg["threshold_detect"]
+THRESHOLD_FL = cfg["threshold_fl"]  # px
+THRESHOLD_PP = cfg["threshold_pp"]  # px
+
 
 # ========================================
 # Camera Thread

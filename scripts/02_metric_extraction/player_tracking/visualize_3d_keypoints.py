@@ -4,21 +4,25 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from pathlib import Path
+import yaml
 
 # ========================================
-# Configuration Parameters
+# Config
 # ========================================
 
-ATHLETE = "kenny"
-SESSION = "session_001"
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 CLIP_NAME = "freethrow1_sync"
 
 # ========================================
 # Paths and Directories 
 # ========================================
 
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[2]
+base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / ATHLETE / SESSION
 csv_path = session_dir / "02_process_data" / "triangulated" / f"{CLIP_NAME}_3d.csv"
 

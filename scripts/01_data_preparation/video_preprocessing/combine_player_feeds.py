@@ -21,12 +21,17 @@ import cv2 as cv
 import numpy as np
 from pathlib import Path
 import re
+import yaml
 
 # =========================
 # Config
 # =========================
-ATHLETE = "kenny"
-SESSION = "session_test"
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # =========================
 # Paths and Directories 

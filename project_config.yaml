@@ -1,0 +1,27 @@
+# Session Information
+athlete: "kenny"
+session: "session_test"
+
+# Calibration Parameters
+inner_corners: [7, 10]     # Number of inner corners (columns, rows)
+square_size_cm: 2.5        # Size of one square in cm
+calibrate_every: 50        # How often to update calibration preview
+success_window: 50         # Rolling detection success window
+
+# Video Parameters
+frame_width: 1280          # Full camera resolution width
+frame_height: 720          # Full camera resolution height
+crop_size: [640, 640]      # Crop size (width, height)
+
+# Camera Indices
+left_cam_index: 1
+right_cam_index: 2
+third_cam_index: 4
+
+player_tracking_fps: 60
+ball_tracking_fps: 30
+
+# Detection Thresholds
+threshold_detect: 0.7      # Success rate threshold for stability
+threshold_fl: 10           # Max allowed focal length diff (px)
+threshold_pp: 20           # Max allowed principal point diff (px)

@@ -19,12 +19,18 @@ import cv2
 import mediapipe as mp
 import pandas as pd
 from pathlib import Path
+import yaml
 
 # ========================================
-# Configuration Parameters
+# Config
 # ========================================
-ATHLETE = "kenny"
-SESSION = "session_test"
+
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # ========================================
 # Paths and Directories

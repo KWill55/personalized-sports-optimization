@@ -27,12 +27,18 @@ import cv2 as cv
 import numpy as np
 from pathlib import Path
 import glob
+import yaml
 
 # ========================================
 # Config
 # ========================================
-ATHLETE = "kenny"
-SESSION = "session_test"
+# Load YAML Config
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 SHOW_DISPARITY = True  # Set to False to skip disparity preview
 NUM_PREVIEW_IMAGES = 3  # How many image pairs to visualize
 

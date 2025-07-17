@@ -4,9 +4,18 @@ import pandas as pd
 import numpy as np
 import cv2
 from pathlib import Path
+import yaml
 
-ATHLETE = "kenny"
-SESSION = "session_001"
+# ========================================
+# Config
+# ========================================
+
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # ======================================== 
 # Paths 

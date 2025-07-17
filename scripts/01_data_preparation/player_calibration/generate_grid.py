@@ -16,15 +16,20 @@ from matplotlib import pyplot as plt
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from pathlib import Path
+import yaml
 
 # ========================================
 # Config
 # ========================================
-ATHLETE = "kenny"
-SESSION = "session_test"
-inner_corners = (7, 10)    # Inner corners (columns, rows)
-square_size_cm = 2.5       # Size of one square in cm
-dpi = 300                  # Print resolution for PNG
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
+inner_corners = tuple(cfg["inner_corners"]) # Inner corners (columns, rows)
+square_size_cm = cfg["square_size_cm"] # Size of one square in cm
+dpi = 300  
 
 # ========================================
 # Paths

@@ -7,13 +7,17 @@ import cv2
 import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
+import yaml
 
 # ========================================
 # Configuration Constants
 # ========================================
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
 
-ATHLETE = "kenny"
-SESSION = "session_001"
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 VIDEO_EXTENSIONS = ['.avi', '.mp4', '.mov', '.hevc']  # Supported formats
 RESIZE_DIMENSIONS = (640, 480)     # Display size in GUI

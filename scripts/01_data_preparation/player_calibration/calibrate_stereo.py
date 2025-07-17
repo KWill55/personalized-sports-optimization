@@ -22,21 +22,30 @@ import cv2 as cv
 import numpy as np
 from pathlib import Path
 import glob
+import yaml
 
 # ========================================
-# Configuration
+# Configuration (from project YAML)
 # ========================================
-CHECKERBOARD_SIZE = (5, 4)  # (columns, rows)
-SQUARE_SIZE = 2.5           # cm per square
 
-ATHLETE = "kenny"
-SESSION = "session_test"
+# Load YAML Config
+config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+with open(config_path, "r") as f:
+    cfg = yaml.safe_load(f)
+
+# Calibration Parameters
+CHECKERBOARD_SIZE = tuple(cfg["inner_corners"])  # (columns, rows)
+SQUARE_SIZE = cfg["square_size_cm"]              # cm per square
+
+# Session Info
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
 
 # ========================================
-# Paths
+# Paths and Directories
 # ========================================
 base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
+session_dir = base_dir / ATHLETE / SESSION
 calib_images_dir = session_dir / "calibration" / "calib_images"
 output_dir = session_dir / "calibration" / "stereo_calibration"
 output_dir.mkdir(parents=True, exist_ok=True)
