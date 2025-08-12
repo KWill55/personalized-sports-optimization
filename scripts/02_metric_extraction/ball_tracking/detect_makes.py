@@ -5,30 +5,39 @@ from pathlib import Path
 import math
 import yaml
 
-# from metrics.release_angle import te_release_anglecompu
-# from metrics.elbow_release_frame import find_release_frame
-
 # =========================
 # Config
 # =========================
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
-with open(config_path, "r") as f:
-    cfg = yaml.safe_load(f)
 
-# path parameters
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+# --- Load YAML files ---
+with open(Path("project_config.yaml"), "r") as f:
+    config1 = yaml.safe_load(f)
 
-# hoop regions (created in create_hoop_regions.py)
-UPPER_HOOP_REGION = ((1223, 362), (1314, 402))
-LOWER_HOOP_REGION = ((1223, 402), (1314, 502))
+with open(Path("session_config.yaml"), "r") as f:
+    config2 = yaml.safe_load(f)
 
-# HSV color range for detecting the ball (created in tune_hsv.py)
-HSV_LOWER = np.array([0, 100, 100])
-HSV_UPPER = np.array([5, 255, 255])
+# --- Assign constants from project_config.yaml ---
+ATHLETE = config1["athlete"]
+SESSION = config1["session"]
+FRAME_WIDTH = config1["original_frame_width"]
+FRAME_HEIGHT = config1["original_frame_height"]
+CROP_SIZE = tuple(config1["crop_size"])
+PLAYER_TRACKING_FPS = config1["player_tracking_fps"]
+BALL_TRACKING_FPS = config1["ball_tracking_fps"]
+
+# --- Assign constants from session_registry.yaml ---
+session_info = config2["athletes"][ATHLETE][SESSION]
+UPPER_HOOP_REGION = session_info["hoop_regions"]["upper"]
+LOWER_HOOP_REGION = session_info["hoop_regions"]["lower"]
+HSV_LOWER = np.array(session_info["hsv_ranges"]["lower"], dtype=np.uint8)
+HSV_UPPER = np.array(session_info["hsv_ranges"]["upper"], dtype=np.uint8)
+AREA_MIN = session_info["ball_area_px"]["min"]
+AREA_MAX = session_info["ball_area_px"]["max"]
+CIRC_MIN = session_info["circularity_min"]
+FILL_MIN = session_info["fill_ratio_min"]
 
 # Display settings
-DISPLAY = True
+DISPLAY = False
 PRINT_TRAJECTORY = True
 
 # =========================
@@ -36,7 +45,7 @@ PRINT_TRAJECTORY = True
 # =========================
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "videos" / "ball_tracking" / "synchronized"
+INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "videos" / "ball_tracking" / "raw"
 OUTPUT_PATH = BASE_DIR / "data" / ATHLETE / SESSION / "metrics" / "ball_tracking_metrics" / "outcomes" / "freethrow_results.csv"
 
 # =========================
@@ -74,7 +83,7 @@ def detect_ball_center(frame, frame_idx):
 
     for contour in contours:
         area = cv2.contourArea(contour)
-        if not (200 < area < 2500):
+        if not (AREA_MIN < area < AREA_MAX):
             continue
         perimeter = cv2.arcLength(contour, True)
         if perimeter == 0:
@@ -83,7 +92,7 @@ def detect_ball_center(frame, frame_idx):
         (x, y), radius = cv2.minEnclosingCircle(contour)
         fill_ratio = area / (math.pi * radius ** 2)
 
-        if circularity < 0.55 or fill_ratio < 0.65:
+        if circularity < CIRC_MIN or fill_ratio < FILL_MIN:
             continue
 
         if prev_center[0] is not None:
@@ -142,72 +151,112 @@ def is_make(trajectory, upper_box, lower_box):
 # =========================
 
 def main():
+    # Collect videos
+    video_files = sorted([*INPUT_FOLDER.glob("*.mp4"), *INPUT_FOLDER.glob("*.avi")])
+    if not video_files:
+        print(f"No .mp4 or .avi videos found in {INPUT_FOLDER}")
+        return
+
+    print(f"Loaded {len(video_files)} videos from: {INPUT_FOLDER}")
+    for i, vp in enumerate(video_files, 1):
+        print(f"  [{i:02d}] {vp.name}")
+
     results = []
+    idx = 0  # current clip index
 
-    print(f"Looking for videos in: {INPUT_FOLDER}")
-    print(f"Found videos: {list(INPUT_FOLDER.glob('*.mp4'))}")
+    while 0 <= idx < len(video_files):
+        video_path = video_files[idx]
+        print(f"\nOpening clip {idx+1}/{len(video_files)} — {video_path.name}")
 
-
-    # Process each video
-    for video_path in sorted(INPUT_FOLDER.glob("*.mp4")):
-        print(f"\nProcessing {video_path.name}")
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
-            print(f"Failed to open video")
+            print("  ❌ Failed to open; skipping.")
+            idx += 1
             continue
-        
 
+        # reset per-clip state
         trajectory = []
         frame_idx = 0
+        prev_center[0] = None  # reset tracker memory per clip
+
+        # flags from keypress to jump clips
+        go_next = False
+        go_prev = False
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
 
-            # Detect ball center
+            # Detect center
             ball_center = detect_ball_center(frame, frame_idx)
             if ball_center:
                 trajectory.append(ball_center)
-                
-                # Draw detected ball center
-                if DISPLAY:
-                    cv2.circle(frame, ball_center, 5, (0, 255, 0), -1)
 
-            frame_idx += 1
-
+            # Overlay for display
             if DISPLAY:
-                
-                # Draw trajectory
+                if ball_center:
+                    cv2.circle(frame, ball_center, 5, (0, 255, 0), -1)
                 for pt in trajectory:
-                    cv2.circle(frame, pt, 3, (0, 0, 255), -1)
+                    cv2.circle(frame, pt, 2, (0, 0, 255), -1)
 
-                # Draw hoop regions
+                # Hoop regions
                 cv2.rectangle(frame, UPPER_HOOP_REGION[0], UPPER_HOOP_REGION[1], (255, 0, 0), 2)
                 cv2.rectangle(frame, LOWER_HOOP_REGION[0], LOWER_HOOP_REGION[1], (0, 0, 255), 2)
 
-                # Show frame in GUI until done or 'q' is pressed
+                # Clip header
+                header = f"Clip {idx+1}/{len(video_files)} — {video_path.name}"
+                cv2.putText(frame, header, (12, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (255, 255, 255), 2, cv2.LINE_AA)
+
                 cv2.imshow("Ball Tracking", frame)
-                if cv2.waitKey(30) & 0xFF == ord('q'):
+                key = cv2.waitKey(30) & 0xFF
+
+                if key == ord('q'):
+                    # finalize current clip result then quit everything
+                    break
+                elif key == ord('n'):
+                    go_next = True
+                    break
+                elif key == ord('p'):
+                    go_prev = True
                     break
 
+            frame_idx += 1
+
         cap.release()
-        
         if DISPLAY:
             cv2.destroyAllWindows()
 
-        # Analyze trajectory for MAKE or MISS
-        result = "MAKE" if is_make(trajectory, UPPER_HOOP_REGION, LOWER_HOOP_REGION) else "MISS"
-        results.append((video_path.name, result))
-        print(f"  Result: {result}")
+        # Compute result for this clip (even if you jumped away)
+        if trajectory:
+            verdict = "MAKE" if is_make(trajectory, UPPER_HOOP_REGION, LOWER_HOOP_REGION) else "MISS"
+        else:
+            verdict = "UNKNOWN"
+        results.append((video_path.name, verdict))
+        print(f"  Result: {verdict}")
 
+        # Navigation logic
+        if go_prev:
+            idx = max(0, idx - 1)
+        elif go_next:
+            idx = min(len(video_files) - 1, idx + 1)
+        else:
+            # natural advance (end of clip)
+            idx += 1
+
+        # Quit if user pressed 'q' (we detect by window already closed + no nav intent)
+        # If you want an explicit quit, uncomment:
+        # if key == ord('q'): break
+
+    # Save CSV
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w", newline='') as f:
+    with open(OUTPUT_PATH, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["video", "result"])
         writer.writerows(results)
-
     print(f"\nResults saved to {OUTPUT_PATH}")
+
 
 if __name__ == "__main__":
     main()
