@@ -7,7 +7,8 @@ Description
     - Displays combined 1280x640 window
 
 Prerequisites:
-    - TODO 
+    - calibration grid printed
+    - ensure cameras can detect grid (check_cb_detection.py)
 
 Usage:
     - capture at least 10 image pairs of the calibration grid (20-25 is best)
@@ -44,7 +45,7 @@ CAM_LEFT_INDEX = cfg["left_cam_index"]
 CAM_RIGHT_INDEX = cfg["right_cam_index"]
 CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])  # (1280, 720)
 CROP_SIZE = tuple(cfg["crop_size"])  # (640, 640)
-FPS = cfg["stereo_fps"]
+PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Calibration Parameters
 CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
@@ -55,7 +56,7 @@ SESSION = cfg["session"]
 # Paths and Directories
 # ========================================
 base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / ATHLETE / SESSION
+session_dir = base_dir / "data" / ATHLETE / SESSION
 calib_dir = session_dir / "calibration" / "calib_images"
 calib_dir.mkdir(parents=True, exist_ok=True)
 
@@ -69,7 +70,7 @@ class CameraThread(threading.Thread):
         self.cap = cv.VideoCapture(index)
         self.cap.set(cv.CAP_PROP_FRAME_WIDTH, CAM_RESOLUTION[0])
         self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, CAM_RESOLUTION[1])
-        self.cap.set(cv.CAP_PROP_FPS, FPS)
+        self.cap.set(cv.CAP_PROP_FPS, PLAYER_TRACKING_FPS)
         self.name = name
         self.frame = None
         self.running = True
