@@ -2,22 +2,21 @@
 Title: record_freethrows.py 
 
 Description:
-    This module's purpose is to record free throw attempts from three cameras. 
-    Two cameras are using stereo vision to track the player, and one camera is used to track the ball. 
-    The module provides a GUI to start and stop recording and displays the current free throw attempt number. 
-    This script saves the video files in a stuctured directory. 
+    Record free throw attempts from three cameras: two (stereo) for player tracking
+    and one for ball tracking. Provides a Tkinter GUI to start/stop recording and
+    displays the current attempt number. Videos are saved in a structured directory.
 
 Inputs
     - Three cameras (two for player tracking, one for ball tracking)
 
 Usage 
-    - GUI has "Record" and "Stop Recording" buttons
+    - GUI has "Start/Stop Recording" button
     
 Outputs
     - 640x640 videos for player tracking (left and right cameras)
-    - 1080p videos for ball tracking
+    - 1080p (or configured) video for ball tracking
 
-Last Updated: 16 July 2025
+Last Updated: 08 August 2025
 """
 
 import cv2 as cv
@@ -26,40 +25,14 @@ from pathlib import Path
 from datetime import datetime
 import tkinter as tk
 from tkinter import Label, Button
-from PIL import Image, ImageTk
 from PIL import Image, ImageTk, ImageOps
-import tkinter as tk
-from tkinter import Label, Button
 import time
 import threading
 import yaml
 
-
-# Label | Res (W×H) | A Ratio | FPS    | Notes
-#-----------------------------------------------------
-# 1080p | 1920×1080 | 16:9    | 30FPS  | works well 	
-# 720p	| 1280×720  | 16:9    | 60FPS  | curently used
-# 480p	| 640×480   | 4:3	  | 100FPS | has problems 
-
-### TODO ###
-# i should display the video resolution before and after the submatrix 
-# make iphone 60FPS instead of 30FPS
-# keep 1080p for ball tracking 
-# find a good way to toggle some comments on/off with a flag or something 
-# make the iphone camera stay at 1920x1080 resolution instead of dropping to 720p like the other two 
-# find distance to place tripods to make freethrows visible. (harder now that we're cropping the feed)
-# maybe add a way of sensing how far from the tripods the athlete is currently standing instead of having use measuring tape? 
-    # maybe do this in calibration steps
-# switch to C++ later if I want to do things real time 
-# enable MJPG later 
-
 # =========================
 # Config (from YAML)
 # =========================
-import yaml
-from pathlib import Path
-
-# Load YAML Config
 config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
@@ -74,25 +47,25 @@ ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
 
 # Video Settings
-FRAME_WIDTH = cfg["frame_width"]
-FRAME_HEIGHT = cfg["frame_height"]
-FPS_LEFT_RIGHT = cfg["player_tracking_fps"]
-FPS_THIRD = cfg["ball_tracking_fps"]           # Default if not in YAML
+FRAME_WIDTH = int(cfg["frame_width"])
+FRAME_HEIGHT = int(cfg["frame_height"])
+FPS_LEFT_RIGHT = float(cfg["player_tracking_fps"])
+FPS_THIRD = float(cfg["ball_tracking_fps"])
 GUI_REFRESH_MS = 30
 
 # Visual Settings
 BORDER_COLORS = {"left": "red", "right": "blue", "third": "green"}
-BORDER_THICKNESS = 5  # Can also move this to YAML if needed
+BORDER_THICKNESS = 5  # Can move to YAML if desired
 
 # =========================
 # Paths and Directories
 # =========================
-base_dir = Path(cfg["base_data_dir"])  # From YAML
+base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 video_dirs = {
     "left": session_dir / "videos" / "player_tracking" / "raw" / "left",
     "right": session_dir / "videos" / "player_tracking" / "raw" / "right",
-    "third": session_dir / "videos" / "ball_tracking" / "raw"
+    "third": session_dir / "videos" / "ball_tracking" / "raw",
 }
 for path in video_dirs.values():
     path.mkdir(parents=True, exist_ok=True)
@@ -102,11 +75,26 @@ for path in video_dirs.values():
 # =========================
 frames = {"left": None, "right": None, "third": None}
 frame_locks = {k: threading.Lock() for k in frames}
+
+# control flags & synchronization
 recording = False
 writers = {}
+writers_lock = threading.Lock()
+stop_event = threading.Event()
+
 throw_count = 0
 frame_counters = {"left": 0, "right": 0, "third": 0}
 start_time = None
+
+
+# =========================
+# Utilities
+# =========================
+def _print_cam_init(name: str, cap: cv.VideoCapture):
+    w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv.CAP_PROP_FPS)
+    print(f"[{name.upper()}] Initialized: {w}x{h}, FPS: {fps:.5f}")
 
 
 # =========================
@@ -117,62 +105,96 @@ def capture_camera(name, index, crop=False):
     Continuously captures frames from the specified camera in a separate thread.
 
     Args:
-        name (str): Identifier for the camera ('left', 'right', 'third').
-        index (int): Index of the camera for cv2.VideoCapture.
-        crop (bool): If True, crop frames to 640x640 (used for left/right cameras).
+        name (str): 'left' | 'right' | 'third'
+        index (int): cv2.VideoCapture index
+        crop (bool): If True, crop frames to 640x640 (used for left/right)
     """
     cap = cv.VideoCapture(index)
-    fps = FPS_LEFT_RIGHT if name in ["left", "right"] else FPS_THIRD #picks correct FPS per which camera 
-    
-    #set camera properties 
+
+    # Request camera properties (some drivers will ignore these)
+    target_fps = FPS_LEFT_RIGHT if name in ["left", "right"] else FPS_THIRD
     cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-    cap.set(cv.CAP_PROP_FPS, fps)
+    cap.set(cv.CAP_PROP_FPS, target_fps)
 
-    print(f"[{name.upper()}] Initialized: {cap.get(cv.CAP_PROP_FRAME_WIDTH)}x{cap.get(cv.CAP_PROP_FRAME_HEIGHT)}, FPS: {cap.get(cv.CAP_PROP_FPS)}")
+    # Reduce latency/drop by shrinking internal buffer
+    cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
-    while True:
+    # Try requesting MJPG from the camera to lower USB bandwidth (best-effort)
+    try:
+        cap.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
+    except Exception:
+        pass
+
+    _print_cam_init(name, cap)
+
+    while not stop_event.is_set():
         ret, frame = cap.read()
         if not ret:
+            # avoid busy spin; camera hiccup
+            time.sleep(0.002)
             continue
 
         if crop:
-            frame = frame[40:680, 320:960]  # Center crop to 640x640
+            # Center-crop to 640x640 from 1280x720
+            # (y: 40->680, x: 320->960)
+            # Ensure bounds are safe even if the camera drops to a different res
+            h, w = frame.shape[:2]
+            y0, y1 = 40, min(680, h)
+            x0, x1 = 320, min(960, w)
+            frame = frame[y0:y1, x0:x1]
+            # If dimensions not exactly 640x640 due to driver quirks, resize
+            if frame.shape[0] != 640 or frame.shape[1] != 640:
+                frame = cv.resize(frame, (640, 640))
 
         with frame_locks[name]:
             frames[name] = frame
 
         if recording:
-            frame_counters[name] += 1
+            # Increment under capture loop to reflect actual captured frame rate
+            # (writer is throttled separately)
+            try:
+                frame_counters[name] += 1
+            except Exception:
+                # Extremely rare race if counters reset during stop/start
+                pass
 
+        # tiny sleep to yield; do not oversleep or you'll throttle capture unintentionally
         time.sleep(0.001)
 
+    cap.release()
+
+
 # =========================
-# Video Writer Thread (FPS Throttling included)
+# Video Writer Thread (FPS Throttling)
 # =========================
 def write_frames():
     """
-    Writes frames to disk at the correct FPS using throttling, so the output video duration matches real time.
+    Writes frames to disk at the correct FPS using throttling, so the output
+    video duration matches real time. Access to `writers` is synchronized.
     """
-    # Compute intervals for each camera
-    intervals = {
-        "left": 1.0 / FPS_LEFT_RIGHT,
-        "right": 1.0 / FPS_LEFT_RIGHT,
-        "third": 1.0 / FPS_THIRD
-    }
-    last_write_time = {name: 0 for name in frames}
+    intervals = {"left": 1.0 / FPS_LEFT_RIGHT, "right": 1.0 / FPS_LEFT_RIGHT, "third": 1.0 / FPS_THIRD}
+    last_write_time = {name: 0.0 for name in frames}
 
-    while True:
+    while not stop_event.is_set():
         if recording:
             now = time.time()
-            for name, writer in writers.items():
-                if now - last_write_time[name] >= intervals[name]:
-                    with frame_locks[name]:
-                        if frames[name] is not None:
-                            writer.write(frames[name])
-                            last_write_time[name] = now
-        time.sleep(0.001)
+            # Snapshot writers under lock to avoid iterator invalidation
+            with writers_lock:
+                local_writers = list(writers.items())
 
+            for name, writer in local_writers:
+                if now - last_write_time.get(name, 0.0) >= intervals[name]:
+                    with frame_locks[name]:
+                        frame = frames[name]
+                    if frame is not None:
+                        try:
+                            writer.write(frame)
+                        except Exception as e:
+                            print(f"[ERROR] write({name}) failed: {e}")
+                        last_write_time[name] = now
+
+        time.sleep(0.001)
 
 
 # =========================
@@ -182,9 +204,6 @@ def get_next_throw_number():
     """
     Scans all video directories for existing 'freethrow*.avi' files and returns
     the next available throw number.
-
-    Returns:
-        int: Next throw number (max existing + 1).
     """
     max_count = 0
     for path in video_dirs.values():
@@ -202,24 +221,28 @@ def start_recording(dims):
     Starts a new recording session by initializing VideoWriter objects.
 
     Args:
-        dims (dict): Dictionary mapping camera names to their frame dimensions.
+        dims (dict): { 'left': (w,h), 'right': (w,h), 'third': (w,h) }
     """
     global writers, recording, throw_count, start_time, frame_counters
+
     throw_count = get_next_throw_number()
     print(f"🟢 Starting freethrow{throw_count}")
 
+    # MJPG in AVI is reliable on macOS & OpenCV
     fourcc = cv.VideoWriter_fourcc(*'MJPG')
 
-    # Create writers for each camera
-    for name, size in dims.items():
-        filepath = video_dirs[name] / f"freethrow{throw_count}.avi"
-        fps = FPS_LEFT_RIGHT if name in ["left", "right"] else FPS_THIRD
-        writers[name] = cv.VideoWriter(str(filepath), fourcc, fps, size)
-        print(f"[INFO] Writing {name} to {filepath} @ {fps} FPS")
+    with writers_lock:
+        for name, size in dims.items():
+            filepath = video_dirs[name] / f"freethrow{throw_count}.avi"
+            fps = FPS_LEFT_RIGHT if name in ["left", "right"] else FPS_THIRD
+            writers[name] = cv.VideoWriter(str(filepath), fourcc, fps, size)
+            print(f"[INFO] Writing {name} to {filepath} @ {fps} FPS")
 
-    recording = True
-    start_time = time.time()
+    # reset counters AFTER writers are ready
     frame_counters = {k: 0 for k in frame_counters}
+    start_time = time.time()
+    # flip recording last so writer thread sees consistent state
+    recording = True
 
 
 def stop_recording():
@@ -227,23 +250,33 @@ def stop_recording():
     Stops the current recording session, calculates FPS, and releases video writers.
     """
     global writers, recording
-    duration = time.time() - start_time
+
+    duration = max(0.0, time.time() - (start_time or time.time()))
     print(f"🛑 Stopping recording after {duration:.1f}s")
 
-    # Compute FPS for each camera
+    # Compute FPS stats (counters are safe enough here)
     for name, count in frame_counters.items():
-        actual_fps = count / duration if duration > 0 else 0
+        actual_fps = (count / duration) if duration > 0 else 0.0
         print(f"[RESULT] {name.upper()} Actual FPS: {actual_fps:.1f}")
         if name in ["left", "right"] and actual_fps < FPS_LEFT_RIGHT * 0.8:
             print(f"[WARNING] {name.upper()} is below target FPS ({actual_fps:.1f} vs {FPS_LEFT_RIGHT})")
         if name == "third" and actual_fps < FPS_THIRD * 0.8:
             print(f"[WARNING] THIRD is below expected FPS ({actual_fps:.1f})")
 
-    # Release writers
-    for w in writers.values():
-        w.release()
-    writers.clear()
+    # 1) Stop writer loop first so it won't touch writers while we release them
     recording = False
+    # let write_frames loop observe the flag
+    time.sleep(0.02)
+
+    # 2) Release writers under lock
+    with writers_lock:
+        for w in writers.values():
+            try:
+                w.release()
+            except Exception as e:
+                print(f"[ERROR] release() failed: {e}")
+        writers.clear()
+
     print("[INFO] Writers closed.")
 
 
@@ -256,12 +289,6 @@ class FreeThrowRecorderApp:
     """
 
     def __init__(self, root):
-        """
-        Initializes the GUI and starts periodic frame updates.
-
-        Args:
-            root (Tk): Tkinter root window.
-        """
         self.root = root
         self.root.title("Free Throw Recorder")
         self.root.geometry("1800x1200")
@@ -276,9 +303,6 @@ class FreeThrowRecorderApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def setup_gui(self):
-        """
-        Creates and arranges all GUI components including buttons, legend, and camera feeds.
-        """
         frame_top = tk.Frame(self.root)
         frame_top.pack()
         self.labels["left"] = Label(frame_top)
@@ -307,12 +331,13 @@ class FreeThrowRecorderApp:
         self.labels["third"].pack(side=tk.LEFT, padx=10)
 
     def toggle_recording(self):
-        """
-        Starts or stops recording based on the current state.
-        """
         global recording
         if not recording:
-            dims = {"left": (640, 640), "right": (640, 640), "third": (FRAME_WIDTH, FRAME_HEIGHT)}
+            dims = {
+                "left": (640, 640),
+                "right": (640, 640),
+                "third": (FRAME_WIDTH, FRAME_HEIGHT),
+            }
             start_recording(dims)
             self.status_text.set(f"Recording freethrow{throw_count}")
         else:
@@ -320,16 +345,17 @@ class FreeThrowRecorderApp:
             self.status_text.set("Status: Idle")
 
     def update_gui(self):
-        """
-        Updates the GUI with the latest frames from each camera every GUI_REFRESH_MS milliseconds.
-        """
+        # Update displayed frames
         for name in frames:
             with frame_locks[name]:
                 frame = frames[name]
+
             if frame is not None:
                 if name in ["left", "right"]:
                     frame_display = cv.resize(frame, (640, 640))
                 else:
+                    # maintain a reasonable preview size for the third camera
+                    # (approx 16:9 preview box)
                     frame_display = cv.resize(frame, (760, 427))
 
                 frame_rgb = cv.cvtColor(frame_display, cv.COLOR_BGR2RGB)
@@ -339,14 +365,18 @@ class FreeThrowRecorderApp:
                 self.images[name] = img
                 self.labels[name].configure(image=img)
 
-        self.root.after(GUI_REFRESH_MS, self.update_gui)
+        if not stop_event.is_set():
+            self.root.after(GUI_REFRESH_MS, self.update_gui)
 
     def on_close(self):
-        """
-        Handles window close event by stopping recording and shutting down the GUI safely.
-        """
+        # Stop any active recording first
         if recording:
             stop_recording()
+
+        # Signal threads to exit and close GUI
+        stop_event.set()
+        # small delay to let threads unwind
+        time.sleep(0.03)
         self.root.destroy()
 
 
@@ -354,12 +384,15 @@ class FreeThrowRecorderApp:
 # Main
 # =========================
 if __name__ == "__main__":
+    # Capture threads
     threading.Thread(target=capture_camera, args=("left", CAMERA_LEFT_INDEX, True), daemon=True).start()
-    threading.Thread(target=capture_camera, args=("right", CAMERA_RIGHT_INDEX, True), daemon=True).start()
+    threading.Thread(target=capture_camera, args=("right", CAMERA_RIGHT_INDEX, True), daemon=True).start    ()
     threading.Thread(target=capture_camera, args=("third", CAMERA_THIRD_INDEX, False), daemon=True).start()
 
+    # Writer thread
     threading.Thread(target=write_frames, daemon=True).start()
 
+    # GUI
     root = tk.Tk()
     app = FreeThrowRecorderApp(root)
-    root.mainloop() 
+    root.mainloop()

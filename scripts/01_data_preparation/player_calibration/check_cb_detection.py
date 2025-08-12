@@ -1,25 +1,10 @@
 """
-Title: tune_stereo_intrinsics.py - Real-Time Stereo Intrinsic Tuning
+Title: check_cb_detection.py
 
-Purpose:
-    Display side-by-side stereo camera feeds (cropped to 640x640 each),
-    detect checkerboard patterns, and show detection consistency stats.
-    Print camera intrinsics and distortion coefficients every N frames.
-
-Usage:
-    - Place a checkerboard in view.
-    - Press ESC to quit.
-"""
-
-"""
-Title: tune_stereo_intrinsics.py - Real-Time Stereo Tuning
-
-Purpose:
-    Provide real-time feedback for physically tuning two cameras before stereo calibration.
-    Displays detection consistency, focal length difference, principal point difference,
-    and horizontal alignment guides.
-
-Features:
+Description:
+    - Purpose: provide real-time feedback for physically tuning two cameras before stereo calibration
+    - Displays detection consistency, focal length difference, principal point difference,
+        and horizontal alignment guides.
     - Rolling detection success rate with GOOD/LOW status
     - Focal length difference (fx, fy) and principal point alignment (cx, cy)
     - Horizontal lines to help align stereo baseline
@@ -32,7 +17,6 @@ Usage:
     - Press ESC to quit
 """
 
-
 import cv2 as cv
 import numpy as np
 import threading
@@ -40,12 +24,11 @@ from collections import deque
 from pathlib import Path
 import yaml
 
+
 # ========================================
 # Config
 # ========================================
-import yaml
-from pathlib import Path
-
+# load yaml config file
 config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
@@ -63,6 +46,7 @@ WINDOW_SIZE = cfg["success_window"]
 # Video Parameters
 CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])
 CROP_SIZE = tuple(cfg["crop_size"])  # (width, height)
+PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Detection Thresholds
 THRESHOLD_DETECT = cfg["threshold_detect"]
@@ -79,7 +63,7 @@ class CameraThread(threading.Thread):
         self.cap = cv.VideoCapture(index)
         self.cap.set(cv.CAP_PROP_FRAME_WIDTH, CAM_RESOLUTION[0])
         self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, CAM_RESOLUTION[1])
-        self.cap.set(cv.CAP_PROP_FPS, 30)
+        self.cap.set(cv.CAP_PROP_FPS, PLAYER_TRACKING_FPS)
         self.name = name
         self.frame = None
         self.running = True
