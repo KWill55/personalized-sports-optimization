@@ -1,0 +1,24 @@
+athletes:
+  alton_overson:
+    
+    session_01:
+      hoop_regions: # Get these from create_hoop_regions.py
+        upper: [[634, 242], [685, 272]]
+        lower: [[634, 272], [685, 352]]
+      hsv_ranges: # Get these from tune_hsv.py
+        lower: [0, 136, 105]
+        upper: [7, 193, 205]
+      ball_area_px: {min: 0, max: 2500}
+      circularity_min: 0 #.55
+      fill_ratio_min: 0 #.65
+    
+    session_02:
+      hoop_regions: # Get these from create_hoop_regions.py
+        upper: [[634, 204], [683, 234]]
+        lower: [[634, 234], [683, 314]]
+      hsv_ranges: # Get these from tune_hsv.py        
+        lower: [6, 150, 65]
+        upper: [10, 233, 131]
+      ball_area_px: {min: 100, max: 2500}
+      circularity_min: .50 #.55
+      fill_ratio_min: .50 #.65
