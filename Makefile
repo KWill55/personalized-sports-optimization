@@ -165,6 +165,12 @@ ball-header: ## 🏀 Ball Tracking
 detect_makes: ## Detect ball metrics
 	python $(ball_dir)/detect_makes.py
 
+create_hoop_regions: ## Create hoop detection regions
+	python $(ball_dir)/create_hoop_regions.py
+
+tune_hsv: ## Tune HSV color ranges for ball detection
+	python $(ball_dir)/tune_hsv.py
+
 # ----------------------------------------
 # Summary Builder
 # ----------------------------------------
@@ -180,14 +186,8 @@ combine_release_summaries: ## Combine release summaries
 helpers2-header: ## 👋 Helpers (Phase 2)
 	@:
 
-create_hoop_regions: ## Create hoop detection regions
-	python $(helpers2_dir)/create_hoop_regions.py
-
 process_release: ## Process release phases
 	python $(helpers2_dir)/process_release.py
-
-tune_hsv: ## HSV color tuning
-	python $(helpers2_dir)/tune_hsv.py
 
 # ======================================== 
 # Phase 3: Analyze Data
