@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 import numpy as np
 import cv2
@@ -9,7 +7,6 @@ import yaml
 # ========================================
 # Config
 # ========================================
-
 config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
@@ -17,36 +14,44 @@ with open(config_path, "r") as f:
 ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
 
-# ======================================== 
-# Paths 
 # ========================================
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parents[2]  # Go up to project root
+# Paths
+# ========================================
+base_dir   = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 
-# Calibration path
-calib_path = session_dir / "calibration" / "stereo_calib.npz"
+calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib_manual.npz"
+kps_dir    = session_dir / "metrics" / "2d_keypoints"        # <— single folder
+out_dir    = session_dir / "metrics" / "3d_keypoints"
+out_dir.mkdir(parents=True, exist_ok=True)
 
-# Input 2D keypoint CSVs
-left_dir = session_dir / "videos" / "player_tracking" / "processed" / "left"
-right_dir = session_dir / "videos" / "player_tracking" / "processed" / "right"
-
-# Output directory
-output_dir = session_dir / "02_process_data" / "triangulated"
-output_dir.mkdir(parents=True, exist_ok=True)
-
-# ======================================== 
-# Load Calibration Parameters
+# ========================================
+# Load calibration
 # ========================================
 calib = np.load(calib_path)
-K1, D1 = calib["mtxL"], calib["distL"]
-K2, D2 = calib["mtxR"], calib["distR"]
-R, T = calib["R"], calib["T"]
-P1 = K1 @ np.hstack((np.eye(3), np.zeros((3, 1))))
-P2 = K2 @ np.hstack((R, T))
+K1, D1 = calib["K1"],   calib["dist1"]
+K2, D2 = calib["K2"],   calib["dist2"]
+R,  T  = calib["R"],    calib["T"].reshape(3,1)
+
+# Pixel-space projection matrices
+P1 = K1 @ np.hstack([np.eye(3), np.zeros((3,1))])
+P2 = K2 @ np.hstack([R, T])
+
+# Infer frame size (fallback to 640x640 if not saved)
+if "image_size" in calib.files:
+    sz = calib["image_size"]
+    FRAME_W, FRAME_H = int(sz[0]), int(sz[1])
+else:
+    FRAME_W = FRAME_H = 640
+
+def to_pixels(x, y):
+    # Heuristic: if looks like normalized coords, scale to pixels
+    if 0.0 <= x <= 2.0 and 0.0 <= y <= 2.0:
+        return x * FRAME_W, y * FRAME_H
+    return x, y
 
 # ========================================
-# MediaPipe landmark names
+# Landmarks
 # ========================================
 landmark_names = [
     "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer",
@@ -60,51 +65,105 @@ landmark_names = [
 ]
 
 # ========================================
-# Triangulation Function
+# Pairing helpers (single folder)
 # ========================================
-def triangulate_clip(left_csv, right_csv, output_path):
-    df_left = pd.read_csv(left_csv)
-    df_right = pd.read_csv(right_csv)
-    triangulated_data = []
+def base_name(stem: str) -> str:
+    for suf in ("_left_2d", "_right_2d", "_left", "_right"):
+        if stem.endswith(suf):
+            return stem[: -len(suf)]
+    return stem
 
-    for idx in range(len(df_left)):
-        frame_data = [idx]
+def find_pairs(kdir: Path):
+    lefts, rights = {}, {}
+    for f in kdir.glob("*.csv"):
+        s = f.stem
+        if s.endswith(("_left_2d", "_left")):
+            lefts[base_name(s)] = f
+        elif s.endswith(("_right_2d", "_right")):
+            rights[base_name(s)] = f
+    bases = sorted(set(lefts.keys()) & set(rights.keys()))
+    for b in bases:
+        yield b, lefts[b], rights[b]
+
+# ========================================
+# Triangulation (with quick QC)
+# ========================================
+def triangulate_clip(left_csv: Path, right_csv: Path, out_csv: Path):
+    dfL = pd.read_csv(left_csv)
+    dfR = pd.read_csv(right_csv)
+
+    tri_rows = []
+    repro_errs_L = []
+    repro_errs_R = []
+    neg_z = 0
+    total_ok = 0
+
+    for idx in range(min(len(dfL), len(dfR))):
+        row = [idx]
         for name in landmark_names:
-            lx, ly = df_left.loc[idx, f"{name}_x"], df_left.loc[idx, f"{name}_y"]
-            rx, ry = df_right.loc[idx, f"{name}_x"], df_right.loc[idx, f"{name}_y"]
+            lx, ly = dfL.loc[idx, f"{name}_x"], dfL.loc[idx, f"{name}_y"]
+            rx, ry = dfR.loc[idx, f"{name}_x"], dfR.loc[idx, f"{name}_y"]
 
             if -1 in (lx, ly, rx, ry):
-                frame_data.extend([-1, -1, -1])
+                row += [-1, -1, -1]
                 continue
 
-            pt_left = np.array([[[lx, ly]]], dtype=np.float32)
-            pt_right = np.array([[[rx, ry]]], dtype=np.float32)
-            undist_left = cv2.undistortPoints(pt_left, K1, D1, P=K1).reshape(2, 1)
-            undist_right = cv2.undistortPoints(pt_right, K2, D2, P=K2).reshape(2, 1)
-            point_4d = cv2.triangulatePoints(P1, P2, undist_left, undist_right)
-            point_3d = point_4d[:3] / point_4d[3]
-            frame_data.extend(point_3d.flatten())
+            # Ensure pixel coords
+            lx, ly = to_pixels(lx, ly)
+            rx, ry = to_pixels(rx, ry)
 
-        triangulated_data.append(frame_data)
+            # Ideal pixel coords (undistorted but still in pixels)
+            ptL = np.array([[[lx, ly]]], dtype=np.float32)
+            ptR = np.array([[[rx, ry]]], dtype=np.float32)
+            uL = cv2.undistortPoints(ptL, K1, D1, P=K1).reshape(2,1)  # 2x1
+            uR = cv2.undistortPoints(ptR, K2, D2, P=K2).reshape(2,1)
 
-    # Save output
-    columns = ["frame"]
-    for name in landmark_names:
-        columns += [f"{name}_x", f"{name}_y", f"{name}_z"]
-    df_out = pd.DataFrame(triangulated_data, columns=columns)
-    df_out.to_csv(output_path, index=False)
-    print(f"✅ Saved 3D keypoints to: {output_path.name}")
+            # Triangulate in pixel space with P1,P2
+            Xh = cv2.triangulatePoints(P1, P2, uL, uR)   # 4x1
+            X  = (Xh[:3] / Xh[3]).reshape(3)             # 3D in cam1 coords
+
+            row += [float(X[0]), float(X[1]), float(X[2])]
+
+            # QC: negative depth count
+            if X[2] <= 0:
+                neg_z += 1
+            else:
+                total_ok += 1
+
+            # QC: reprojection error vs ideal pixels
+            # Left: uL_pred = project K1 * X
+            XL = K1 @ X.reshape(3,1)
+            uL_pred = (XL[:2] / XL[2]).reshape(2)
+            errL = float(np.linalg.norm(uL_pred - uL.reshape(2)))
+            repro_errs_L.append(errL)
+
+            # Right: K2 * (R X + T)
+            XR = K2 @ (R @ X.reshape(3,1) + T)
+            uR_pred = (XR[:2] / XR[2]).reshape(2)
+            errR = float(np.linalg.norm(uR_pred - uR.reshape(2)))
+            repro_errs_R.append(errR)
+
+        tri_rows.append(row)
+
+    # Save
+    cols = ["frame"] + [f"{n}_{ax}" for n in landmark_names for ax in ("x","y","z")]
+    pd.DataFrame(tri_rows, columns=cols).to_csv(out_csv, index=False)
+    print(f"✅ Saved 3D keypoints: {out_csv.name}")
+
+    # QC summary
+    if repro_errs_L and repro_errs_R:
+        mL = np.mean(repro_errs_L); mR = np.mean(repro_errs_R)
+        frac_neg = neg_z / max(1, (neg_z + total_ok))
+        print(f"   ↳ mean repro err (px): left={mL:.2f}, right={mR:.2f} | Z≤0: {100*frac_neg:.1f}%")
 
 # ========================================
-# Batch Process All CSVs
+# Run
 # ========================================
-for left_file in sorted(left_dir.glob("*_left_2d.csv")):
-    clip_base = left_file.stem.replace("_left_2d", "")
-    right_file = right_dir / f"{clip_base}_right_2d.csv"
-
-    if not right_file.exists():
-        print(f"⚠️ Skipping {clip_base}: right file not found.")
-        continue
-
-    output_csv = output_dir / f"{clip_base}_3d.csv"
-    triangulate_clip(left_file, right_file, output_csv)
+pairs = list(find_pairs(kps_dir))
+if not pairs:
+    print(f"❌ No left/right 2D keypoint pairs found in {kps_dir}")
+else:
+    print(f"[INFO] Found {len(pairs)} clip(s) in {kps_dir}")
+    for base, lf, rf in pairs:
+        out_csv = out_dir / f"{base}_3d.csv"
+        triangulate_clip(lf, rf, out_csv)

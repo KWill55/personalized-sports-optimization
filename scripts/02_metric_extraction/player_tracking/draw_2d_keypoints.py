@@ -63,7 +63,7 @@ LANDMARK_NAMES = [
 # ========================================
 
 base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / "kenny" / "session_test"
+session_dir = base_dir / "data" / ATHLETE / SESSION
 
 videos_dir = session_dir / "videos/player_tracking/synchronized"
 keypoints_dir = session_dir / "metrics/2d_keypoints"
@@ -83,29 +83,36 @@ class KeypointVisualizer:
     def load_keypoints(self, csv_path):
         return pd.read_csv(csv_path)
 
-    def draw_skeleton(self, frame, keypoints_row):
+    @staticmethod
+    def _xy(row, name, w, h):
+        x = row.get(f"{name}_x", -1)
+        y = row.get(f"{name}_y", -1)
+        if x == -1 or y == -1:
+            return None
+        # If coords look normalized [0..2], scale; otherwise assume pixels
+        if 0.0 <= x <= 2.0 and 0.0 <= y <= 2.0:
+            x *= w; y *= h
+        # Reject out-of-bounds to avoid crazy lines
+        if not (0 <= x < w and 0 <= y < h):
+            return None
+        return int(round(x)), int(round(y))
+
+    def draw_skeleton(self, frame, keypoints_row, vis_thresh=0.5):
         h, w, _ = frame.shape
         points = []
-
         for name in LANDMARK_NAMES:
-            x = keypoints_row[f"{name}_x"]
-            y = keypoints_row[f"{name}_y"]
-            if x != -1 and y != -1:
-                points.append((int(x * w), int(y * h)))
-            else:
-                points.append(None)
+            p = self._xy(keypoints_row, name, w, h)
+            v = float(keypoints_row.get(f"{name}_v", 1.0))  # MediaPipe visibility if present
+            points.append(p if (p and v >= vis_thresh) else None)
 
-        # Draw lines
-        for start, end in self.pose_connections:
-            if points[start] and points[end]:
-                cv2.line(frame, points[start], points[end], self.colors["skeleton"], self.line_thickness)
-
-        # Draw points
+        for s, e in self.pose_connections:
+            if points[s] and points[e]:
+                cv2.line(frame, points[s], points[e], self.colors["skeleton"], self.line_thickness, cv2.LINE_AA)
         for p in points:
             if p:
-                cv2.circle(frame, p, self.point_radius, self.colors["joint"], -1)
-
+                cv2.circle(frame, p, self.point_radius, self.colors["joint"], -1, lineType=cv2.LINE_AA)
         return frame
+
 
     def visualize_from_csv(self, video_path, left_csv, right_csv, output_path):
         cap = cv2.VideoCapture(str(video_path))
@@ -150,8 +157,8 @@ if __name__ == "__main__":
 
     for video_path in sorted(videos_dir.glob("*.avi")):
         stem = video_path.stem  # e.g., freethrow1
-        left_csv = keypoints_dir / f"{stem}_left.csv"
-        right_csv = keypoints_dir / f"{stem}_right.csv"
+        left_csv = keypoints_dir / f"{stem}_left_2d.csv"
+        right_csv = keypoints_dir / f"{stem}_right_2d.csv"
         output_path = output_dir / f"{stem}_2d.avi"
 
         if left_csv.exists() and right_csv.exists():

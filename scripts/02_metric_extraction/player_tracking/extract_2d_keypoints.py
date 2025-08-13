@@ -27,10 +27,10 @@ import yaml
 
 config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
-    cfg = yaml.safe_load(f)
+    config = yaml.safe_load(f)
 
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+ATHLETE = config["athlete"]
+SESSION = config["session"]
 
 # ========================================
 # Paths and Directories
@@ -99,10 +99,15 @@ class PoseExtractor:
         """
         keypoints = []
         for frame in frames:
+            h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = self.pose.process(rgb)
             if results.pose_landmarks:
-                pts = [val for lm in results.pose_landmarks.landmark for val in (lm.x, lm.y, lm.visibility)]
+                pts = []
+                for lm in results.pose_landmarks.landmark:
+                    x = lm.x * w   # convert to pixels
+                    y = lm.y * h   # convert to pixels
+                    pts.extend([x, y, lm.visibility])
             else:
                 pts = [-1] * (33 * 3)
             keypoints.append(pts)
@@ -148,7 +153,8 @@ if __name__ == "__main__":
         right_kps = extractor.extract(right_frames)
 
         # Save to CSV
-        left_csv = output_keypoints_dir / f"{video_path.stem}_left.csv"
-        right_csv = output_keypoints_dir / f"{video_path.stem}_right.csv"
+        left_csv  = output_keypoints_dir / f"{video_path.stem}_left_2d.csv"
+        right_csv = output_keypoints_dir / f"{video_path.stem}_right_2d.csv"
+
         KeypointSaver.save_csv(left_kps, left_csv)
         KeypointSaver.save_csv(right_kps, right_csv)
