@@ -29,6 +29,7 @@ import threading
 import time
 import yaml
 from pathlib import Path
+import numpy as np
 
 
 # ========================================
@@ -40,17 +41,20 @@ config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
+#session info 
+ATHLETE = cfg["athlete"]
+SESSION = cfg["session"]
+
 # Camera Parameters
 CAM_LEFT_INDEX = cfg["left_cam_index"]
 CAM_RIGHT_INDEX = cfg["right_cam_index"]
-CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])  # (1280, 720)
-CROP_SIZE = tuple(cfg["crop_size"])  # (640, 640)
+CAM_RESOLUTION = (cfg["original_frame_width"], cfg["original_frame_height"])  # (1280, 720)
+CROP_RESOLUTION = tuple(cfg["crop_size"])  # (640, 640)
 PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Calibration Parameters
 CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
 
 # ========================================
 # Paths and Directories
@@ -117,7 +121,7 @@ class StereoCaptureGUI:
             if self.left_cam.frame is None or self.right_cam.frame is None:
                 continue
 
-            # Crop and combine
+            # Crop and combine the two images 
             frameL = self.crop_center(self.left_cam.frame)
             frameR = self.crop_center(self.right_cam.frame)
             combined = cv.hconcat([frameL, frameR])
@@ -144,23 +148,59 @@ class StereoCaptureGUI:
 
         print("[INFO] Closing capture window.")
 
+    @staticmethod
+    def quick_square_px(pts, cols, rows):
+        """
+        Rough estimate of pixels-per-square using corner lengths.
+        Uses TL->TR for width and TL->BL for height, then returns the conservative min.
+        """
+        pts = pts.reshape(-1, 2)
+        tl = pts[0]                          # top-left
+        tr = pts[cols - 1]                   # top-right (same row)
+        bl = pts[(rows - 1) * cols]          # bottom-left (same col)
+        w = np.linalg.norm(tr - tl) / (cols - 1)
+        h = np.linalg.norm(bl - tl) / (rows - 1)
+        return min(w, h)
+
+
     def capture_pair(self, frameL, frameR, combined):
-        # Check checkerboard detection in both cameras
+        # 1) Detect checkerboard in both
         grayL = cv.cvtColor(frameL, cv.COLOR_BGR2GRAY)
         grayR = cv.cvtColor(frameR, cv.COLOR_BGR2GRAY)
 
-        retL, _ = cv.findChessboardCorners(grayL, CHECKERBOARD, None)
-        retR, _ = cv.findChessboardCorners(grayR, CHECKERBOARD, None)
+        det_flags = cv.CALIB_CB_EXHAUSTIVE
+        retL, ptsL = cv.findChessboardCornersSB(grayL, CHECKERBOARD, flags=det_flags)
+        retR, ptsR = cv.findChessboardCornersSB(grayR, CHECKERBOARD, flags=det_flags)
 
-        if retL and retR:
-            fname = calib_dir / f"pair_{self.pair_id:02}.png"
-            cv.imwrite(str(fname), combined)
-            print(f"[INFO] Saved {fname.name}")
-            self.show_status(f"Saved pair #{self.pair_id}", (0, 255, 0))
-            self.pair_id += 1
-        else:
-            print("[WARNING] Checkerboard not detected in both cameras. Try again.")
-            self.show_status("Checkerboard NOT detected!", (0, 0, 255))
+        if not (retL and retR):
+            msg = "Checkerboard NOT detected in both."
+            print(f"[WARNING] {msg}")
+            self.show_status(msg, (0, 0, 255))
+            return
+
+        # 2) Refine corners (helps the size estimate slightly)
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 1e-3)
+        cv.cornerSubPix(grayL, ptsL, (11, 11), (-1, -1), criteria)
+        cv.cornerSubPix(grayR, ptsR, (11, 11), (-1, -1), criteria)
+
+        # 3) Fast per-square pixel size using grid spans
+        cols, rows = CHECKERBOARD  # (inner corners)
+        sqL = self.quick_square_px(ptsL, cols, rows)
+        sqR = self.quick_square_px(ptsR, cols, rows)
+
+        if (sqL < MIN_SQUARE_PX) or (sqR < MIN_SQUARE_PX):
+            msg = f"Board too small (L={sqL:.1f}px, R={sqR:.1f}px). Move closer."
+            print(f"[WARNING] {msg}")
+            self.show_status(msg, (0, 0, 255))
+            return
+
+        # 4) Passed both gates → save
+        fname = calib_dir / f"pair_{self.pair_id:02}.png"
+        cv.imwrite(str(fname), combined)
+        print(f"[INFO] Saved {fname.name}  (square px L={sqL:.1f}, R={sqR:.1f})")
+        self.show_status(f"Saved pair #{self.pair_id}", (0, 255, 0))
+        self.pair_id += 1
+
 
 
 # ========================================
