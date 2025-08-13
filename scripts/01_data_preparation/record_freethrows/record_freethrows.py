@@ -57,6 +57,10 @@ GUI_REFRESH_MS = 30
 BORDER_COLORS = {"left": "red", "right": "blue", "third": "green"}
 BORDER_THICKNESS = 5  # Can move to YAML if desired
 
+PAD_WIDTH = int(cfg.get("throw_number_width", 3))  # zero-pad to 3 digits
+NAME_PREFIX = "freethrow"
+
+
 # =========================
 # Paths and Directories
 # =========================
@@ -226,14 +230,13 @@ def start_recording(dims):
     global writers, recording, throw_count, start_time, frame_counters
 
     throw_count = get_next_throw_number()
-    print(f"🟢 Starting freethrow{throw_count}")
+    label = f"{NAME_PREFIX}{throw_count:0{PAD_WIDTH}d}"
+    print(f"🟢 Starting {label}")
 
-    # MJPG in AVI is reliable on macOS & OpenCV
     fourcc = cv.VideoWriter_fourcc(*'MJPG')
-
     with writers_lock:
         for name, size in dims.items():
-            filepath = video_dirs[name] / f"freethrow{throw_count}.avi"
+            filepath = video_dirs[name] / f"{label}.avi"   # <— padded!
             fps = FPS_LEFT_RIGHT if name in ["left", "right"] else FPS_THIRD
             writers[name] = cv.VideoWriter(str(filepath), fourcc, fps, size)
             print(f"[INFO] Writing {name} to {filepath} @ {fps} FPS")
@@ -333,13 +336,10 @@ class FreeThrowRecorderApp:
     def toggle_recording(self):
         global recording
         if not recording:
-            dims = {
-                "left": (640, 640),
-                "right": (640, 640),
-                "third": (FRAME_WIDTH, FRAME_HEIGHT),
-            }
+            dims = {"left": (640, 640), "right": (640, 640), "third": (FRAME_WIDTH, FRAME_HEIGHT)}
             start_recording(dims)
-            self.status_text.set(f"Recording freethrow{throw_count}")
+            label = f"{NAME_PREFIX}{get_next_throw_number()-1:0{PAD_WIDTH}d}"
+            self.status_text.set(f"Recording {label}")
         else:
             stop_recording()
             self.status_text.set("Status: Idle")
