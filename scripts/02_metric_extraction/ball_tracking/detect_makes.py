@@ -45,8 +45,9 @@ PRINT_TRAJECTORY = True
 # =========================
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-INPUT_FOLDER = BASE_DIR / "data" / ATHLETE / SESSION / "videos" / "ball_tracking" / "raw"
-OUTPUT_PATH = BASE_DIR / "data" / ATHLETE / SESSION / "metrics" / "ball_tracking_metrics" / "outcomes" / "freethrow_results.csv"
+SESSION_DIR = BASE_DIR / "data" / ATHLETE / SESSION
+INPUT_FOLDER = SESSION_DIR / "videos" / "ball_tracking" / "raw"
+OUTPUT_PATH = SESSION_DIR / "analysis" / "outcomes.csv"
 
 # =========================
 # Global Variables
@@ -253,8 +254,29 @@ def main():
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["video", "result"])
-        writer.writerows(results)
+        writer.writerow(["file", "outcome"])  # <-- rename headers to match prep script
+        for vid, verdict in results:
+            # Construct the feature key to match features.csv exactly.
+            # If your features 'file' is literally the angles CSV name:
+            #   e.g., freethrow001_angles.csv
+            # then derive it here. Adjust this line to YOUR convention.
+            base = Path(vid).stem  # e.g., "freethrow001_left"
+            # Example mapping: strip camera suffixes and append "_angles.csv"
+            # Tweak this to your naming scheme.
+            core = base.split("_")[0]  # e.g., "freethrow001"
+            feature_key = f"{core}_angles.csv"
+
+            # normalize label text
+            if verdict.upper() == "MAKE":
+                label = "made"
+            elif verdict.upper() == "MISS":
+                label = "miss"
+            else:
+                # Skip UNKNOWN to keep dataset clean
+                continue
+
+            writer.writerow([feature_key, label])
+
     print(f"\nResults saved to {OUTPUT_PATH}")
 
 
