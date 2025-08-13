@@ -4,9 +4,10 @@ session: "session_02"
 
 # Calibration Parameters
 inner_corners: [5,4]     # Number of inner corners (columns, rows)
-square_size_cm: 3.5        # Size of one square in cm
+square_size_cm: 3.4        # Size of one square in cm
 calibrate_every: 50        # How often to update calibration preview
 success_window: 50         # Rolling detection success window
+min_square_px: 40
 
 # Video Parameters
 original_frame_width: 1280          # Full camera resolution width
