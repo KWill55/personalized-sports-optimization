@@ -5,6 +5,12 @@
 # Targets
 all: process split plot analyze
 
+.PHONY: train_phase_models_cv
+
+# Constants
+ATHLETE := $(shell python3 -c "import yaml; print(yaml.safe_load(open('project_config.yaml'))['athlete'])")
+SESSION := $(shell python3 -c "import yaml; print(yaml.safe_load(open('project_config.yaml'))['session'])")
+
 # ======================================== 
 # help
 # ========================================
@@ -60,6 +66,10 @@ check_cb_detection: ## Step 1 - Ensure cameras can see CB grid.
 	@echo "Opening camera feeds to ensure cb detection"
 	python $(calibrate_dir)/check_cb_detection.py
 
+capture_cb_mono: ## Step 2 - Capture calibration of CB grid.
+	@echo "Capturing images for calibration..."
+	python $(calibrate_dir)/capture_cb_mono.py
+
 capture_cb_pairs: ## Step 2 - Capture calibration pairs of CB grid.
 	@echo "Capturing image pairs for calibration..."
 	python $(calibrate_dir)/capture_cb_pairs.py
@@ -67,6 +77,14 @@ capture_cb_pairs: ## Step 2 - Capture calibration pairs of CB grid.
 calibrate_stereo: ## Step 3 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
 	python $(calibrate_dir)/calibrate_stereo.py
+
+estimate_intrinsics: ## Estimate intrinsics from calibration images
+	@echo "Estimating intrinsics from calibration images..."
+	python $(calibrate_dir)/estimate_intrinsics.py
+
+estimate_extrinsics: ## Estimate extrinsics from calibration images
+	@echo "Estimating extrinsics from calibration images..."
+	python $(calibrate_dir)/estimate_extrinsics.py
 
 inspect_calibration: ## Step 4 - Ensure calibration was successful
 	@echo "Printing parameters to terminal and opening images..."
@@ -127,16 +145,6 @@ metrics_dir := $(ball_dir)/metrics
 player_dir := $(extract_dir)/player_tracking
 helpers2_dir := $(extract_dir)/helpers
 summary_dir := $(extract_dir)/summary_builder
-phases_dir := $(extract_dir)/split_phases
-
-# ----------------------------------------
-# Detect Phases
-# ----------------------------------------
-phases-header: ## 🗂️  Split Phases
-	@:
-
-detect_phases: ## Detect motion phases
-	python $(phases_dir)/split_phases.py
 
 # ----------------------------------------
 # Player Tracking
@@ -150,11 +158,14 @@ extract_2d_keypoints: ## Extract 2D keypoints from videos
 extract_3d_keypoints: ## Triangulate 3D keypoints from 2D keypoints
 	python $(player_dir)/extract_3d_keypoints.py
 
-visualize_2d_keypoints: ## Visualize 2D keypoints
-	python $(player_dir)/visualize_2d_keypoints.py
+compute_3d_angles: ## Compute 3D angles from 3D keypoints
+	python $(player_dir)/compute_3d_angles.py
 
-visualize_3d_keypoints: ## Visualize 3D keypoints
-	python $(player_dir)/visualize_3d_keypoints.py
+draw_2d_keypoints: ## Draw 2D keypoints onto videos
+	python $(player_dir)/draw_2d_keypoints.py
+
+split_phases: ## Detect motion phases
+	python $(player_dir)/split_phases.py
 
 # ----------------------------------------
 # Ball Tracking
@@ -186,8 +197,8 @@ combine_release_summaries: ## Combine release summaries
 helpers2-header: ## 👋 Helpers (Phase 2)
 	@:
 
-process_release: ## Process release phases
-	python $(helpers2_dir)/process_release.py
+combine_releases: ## Process release data into single CSV
+	python $(helpers2_dir)/combine_releases.py
 
 # ======================================== 
 # Phase 3: Analyze Data
@@ -202,7 +213,30 @@ divider6-header: ## -------------------------------------
 # ----------------------------------------
 # Paths and Directories 
 # ----------------------------------------
-analyze_dir := scripts/03_analyze_data/train_models
+feature_engineering_dir := scripts/03_analysis_and_modeling/feature_engineering
+exploratory_analysis_dir := scripts/03_analysis_and_modeling/exploratory_analysis
+train_models_dir := scripts/03_analysis_and_modeling/train_models
+evaluation_dir := scripts/03_analysis_and_modeling/evaluation
+
+# ----------------------------------------
+# Feature Engineering 
+# ----------------------------------------
+feature-engineering-header: ## 🛠 Feature Engineering
+	@:
+
+extract_phase_features: ## Extract features from phases
+	@echo "Extracting features from phases..."
+	python $(feature_engineering_dir)/extract_phase_features.py
+
+prepare_phase_dataset: ## Merge features and labels for analysis 
+	@echo "Merging features.csv and outcomes.csv..."
+	python $(feature_engineering_dir)/prepare_phase_dataset.py
+
+# ----------------------------------------
+# Exploratory Analysis 
+# ----------------------------------------
+exploratory-analysis-header: ## 🛠 Exploratory Analysis 
+	@:
 
 # ----------------------------------------
 # Train Models
@@ -210,14 +244,15 @@ analyze_dir := scripts/03_analyze_data/train_models
 train-header: ## 📊 Train Models
 	@:
 
-analyze_release_averages: ## Analyze average release data
-	python $(analyze_dir)/analyze_release_averages.py
+train_phase_models_cv: ## Train ML models with CV
+	@echo "Training phase models for $(ATHLETE) / $(SESSION) with cross-validation..."
+	./scripts/03_analysis_and_modeling/train_models/train_phase_models_cv.sh $(ATHLETE) $(SESSION)
 
-prepare_release_features: ## Create training features
-	python $(analyze_dir)/prepare_release_features.py
-
-train_baseline_models: ## Train ML models
-	python $(analyze_dir)/train_baseline_models.py
+# ----------------------------------------
+# Evaluation
+# ----------------------------------------
+evaluation-header: ## 🛠 Evaluation 
+	@:
 
 # ----------------------------------------
 # Helpers (phase 3)
@@ -247,6 +282,10 @@ util1-header: ## 🛠 Utilities
 play_avi_videos: ## GUI for interacting with AVI videos in a folder
 	@echo "Opening GUI to interact with AVI videos..."
 	python $(util_dir)/play_avi_videos.py
+
+3d_viewer: ## GUI for viewing 3D data
+	@echo "Opening 3D viewer GUI..."
+	python $(util_dir)/mp33_3d_viewer.py
 
 # ======================================== 
 # clean 
