@@ -13,12 +13,22 @@ athletes:
       fill_ratio_min: 0 #.65
     
     session_02:
-      hoop_regions: # Get these from create_hoop_regions.py
-        upper: [[634, 204], [683, 234]]
-        lower: [[634, 234], [683, 314]]
-      hsv_ranges: # Get these from tune_hsv.py        
-        lower: [6, 150, 65]
-        upper: [10, 233, 131]
-      ball_area_px: {min: 100, max: 2500}
-      circularity_min: .50 #.55
-      fill_ratio_min: .50 #.65
+      
+      #values from create_hoop_regions.py
+      hoop_regions:
+        upper: [[631, 174], [686, 234]]
+        lower: [[631, 234], [686, 314]]
+      
+      #values from tune_ball_detection.py
+      hsv_ranges:     
+        lower: [0, 75, 50]
+        upper: [12, 230, 200]
+      
+      ball_area_px: {min: 400, max: 4000}
+      circularity_min: .7
+      fill_ratio_min: .65
+
+      min_motion: 5
+      erode_iters: 2
+      dilate_iters: 4
+      blur_ksize: 1

@@ -161,6 +161,9 @@ extract_3d_keypoints: ## Triangulate 3D keypoints from 2D keypoints
 compute_3d_angles: ## Compute 3D angles from 3D keypoints
 	python $(player_dir)/compute_3d_angles.py
 
+compute_3d_vel_acc: ## Compute 3D velocity and acceleration from 3D keypoints
+	python $(player_dir)/compute_3d_vel_acc.py
+
 draw_2d_keypoints: ## Draw 2D keypoints onto videos
 	python $(player_dir)/draw_2d_keypoints.py
 
@@ -176,11 +179,14 @@ ball-header: ## 🏀 Ball Tracking
 detect_makes: ## Detect ball metrics
 	python $(ball_dir)/detect_makes.py
 
+detect_makes_gui: ## Detect ball metrics
+	python $(ball_dir)/detect_makes_gui.py
+
 create_hoop_regions: ## Create hoop detection regions
 	python $(ball_dir)/create_hoop_regions.py
 
-tune_hsv: ## Tune HSV color ranges for ball detection
-	python $(ball_dir)/tune_hsv.py
+tune_ball_detection: ## Tune HSV, circularity, and size thresholds for ball detection
+	python $(ball_dir)/tune_ball_detection.py
 
 # ----------------------------------------
 # Summary Builder
@@ -244,9 +250,9 @@ exploratory-analysis-header: ## 🛠 Exploratory Analysis
 train-header: ## 📊 Train Models
 	@:
 
-train_phase_models_cv: ## Train ML models with CV
+training: ## Train ML models with CV
 	@echo "Training phase models for $(ATHLETE) / $(SESSION) with cross-validation..."
-	./scripts/03_analysis_and_modeling/train_models/train_phase_models_cv.sh $(ATHLETE) $(SESSION)
+	./scripts/03_analysis_and_modeling/train_models/training.sh $(ATHLETE) $(SESSION)
 
 # ----------------------------------------
 # Evaluation
