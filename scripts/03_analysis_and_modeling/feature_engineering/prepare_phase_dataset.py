@@ -10,42 +10,50 @@ Purpose:
     - Drops non-numeric columns (e.g., file) before saving X
 """
 
+from pathlib import Path
+import yaml
 import pandas as pd
 import numpy as np
-from pathlib import Path
 from sklearn.utils import resample
-import yaml
+import sys
 
-# ========================================
-# CONFIGURATION
-# ========================================
-cfg_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
-with open(cfg_path, "r") as f:
-    cfg = yaml.safe_load(f)
+# --- repo root on sys.path so 'utils' is importable ---
+ROOT_DIR = Path(__file__).resolve().parents[3]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+from utils.translate_config import load_paths  # your helper
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-SESSION_DIR = BASE_DIR / "data" / ATHLETE / SESSION
-ANGLES_DIR = SESSION_DIR / "metrics" / "3d_angles"
+# ---------- Load project + paths ----------
+project_cfg_path = ROOT_DIR / "project_config.yaml"
+paths = load_paths(project_cfg_path)
 
-# Input files
-PHASES_CSV = SESSION_DIR / "analysis" / "datasets" /  "freethrow_phases.csv"
-FEATURES_FILE = SESSION_DIR / "analysis" / "datasets" / "phase_features.csv"
-OUTCOMES_FILE = SESSION_DIR / "analysis" / "datasets" / "outcomes.csv"
+DATASETS_DIR = paths["datasets"]             # data/{athlete}/{session}/analysis/datasets
+OUTCOMES_FILE = DATASETS_DIR / "outcomes.csv"
+
+# ---------- Load feature config (to get the variant label) ----------
+feature_cfg_path = ROOT_DIR / "feature_config.yaml"
+with open(feature_cfg_path, "r") as f:
+    feature_cfg = yaml.safe_load(f)
+
+FEATURE_LABEL = str(feature_cfg.get("version", "unknown_version"))  # e.g., "ang_vel_acc"
+FEATURES_FILE = DATASETS_DIR / "features" / FEATURE_LABEL / f"phase_features_{FEATURE_LABEL}.csv"
+
+# ---------- Variant-specific outputs ----------
+VARIANT_DIR = DATASETS_DIR / "features" / FEATURE_LABEL
+VARIANT_DIR.mkdir(parents=True, exist_ok=True)
+
+X_OUT_PATH = VARIANT_DIR / "X.csv"
+Y_OUT_PATH = VARIANT_DIR / "y.csv"
+MERGED_OUT_PATH = VARIANT_DIR / "merged.csv"
 
 # Label column name in outcomes file (set to None to auto-detect)
-LABEL_COLUMN = "outcome"  # or None
-
-# Output files
-X_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "X.csv"
-Y_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "y.csv"
-MERGED_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "merged_dataset.csv"
+LABEL_COLUMN = "outcome"   # or None
 
 # Processing options
-BALANCE = "none"         # options: "none", "downsample", "upsample"
-IMPUTE = "median"        # options: "median", "drop"
+BALANCE = "none"           # "none", "downsample", "upsample"
+IMPUTE = "median"          # "median", "drop"
+
 
 # ========================================
 # FUNCTIONS
@@ -138,17 +146,18 @@ def main():
     y = merged["_label"].copy()
 
     # Save
-    Path(X_OUT_DIR).parent.mkdir(parents=True, exist_ok=True)
-    Path(Y_OUT_DIR).parent.mkdir(parents=True, exist_ok=True)
-    Path(MERGED_OUT_DIR).parent.mkdir(parents=True, exist_ok=True)
+    Path(X_OUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+    Path(Y_OUT_PATH).parent.mkdir(parents=True, exist_ok=True)
+    Path(MERGED_OUT_PATH).parent.mkdir(parents=True, exist_ok=True)
 
-    X.to_csv(X_OUT_DIR, index=False)
-    y.to_csv(Y_OUT_DIR, index=False, header=True)
-    merged.to_csv(MERGED_OUT_DIR, index=False)
+    X.to_csv(X_OUT_PATH, index=False)
+    y.to_csv(Y_OUT_PATH, index=False, header=True)
+    merged.to_csv(MERGED_OUT_PATH, index=False)
 
     print("✅ Prepared dataset")
     print(f" - Features file: {FEATURES_FILE}")
     print(f" - Outcomes file: {OUTCOMES_FILE}")
+    print(f" - Saved to: {VARIANT_DIR}")
     print(f" - Balance: {BALANCE}, Impute: {IMPUTE}")
     print(f" - Rows: {len(merged)}, X shape: {X.shape}")
     print(f" - y distribution:\n{y.value_counts()}")

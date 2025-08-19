@@ -44,7 +44,7 @@ VERSION = str(feature_cfg.get("version", "1.0"))  # fallback if not defined
 # -------------------------
 # Output paths
 # -------------------------
-OUTPUT_CSV = DATASETS_DIR / f"phase_features_{VERSION}.csv"
+OUTPUT_CSV = DATASETS_DIR / "features" / VERSION / f"phase_features_{VERSION}.csv"
 OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 
 # -------------------------
