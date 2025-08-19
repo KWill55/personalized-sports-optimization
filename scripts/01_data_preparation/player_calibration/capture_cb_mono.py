@@ -1,17 +1,14 @@
 """
-Title: capture_cb_mono.py  (single-camera checkerboard capture)
+Title: capture_cb_mono.py (single-camera checkerboard capture with 5-fingers auto-capture)
 
-Purpose:
-    Capture checkerboard images from ONE camera at a time for mono intrinsics.
-    - Crops center 640x640 from the selected camera (LEFT or RIGHT)
-    - Displays a single 640x640 window
-    - Saves into separate folders: mono_left/ and mono_right/
-    - Requires checkerboard detection AND average square size >= MIN_SQUARE_PX
+Auto-captures after 2s of exactly FIVE fingers up.
+Draws MediaPipe hand landmarks, shows finger count,
+and displays which side/filename will be saved next.
 
 Controls:
-    - TAB       : switch active camera (LEFT <-> RIGHT)
-    - SPACE     : capture (if detection + size gate pass)
-    - ESC       : quit
+  - TAB   : switch active camera (LEFT <-> RIGHT)
+  - SPACE : manual capture (if detection + size gate pass)
+  - ESC   : quit
 """
 
 import cv2 as cv
@@ -21,6 +18,16 @@ import threading
 import time
 import yaml
 import numpy as np
+
+# ========= Simple hand detector =========
+try:
+    import mediapipe as mp
+except ImportError:
+    raise SystemExit("mediapipe required. Install with: pip install mediapipe")
+
+mp_hands = mp.solutions.hands
+mp_draw  = mp.solutions.drawing_utils
+mp_style = mp.solutions.drawing_styles
 
 # ========================================
 # Config (from project YAML)
@@ -36,8 +43,8 @@ SESSION = cfg["session"]
 # Camera Parameters
 CAM_LEFT_INDEX = cfg["left_cam_index"]
 CAM_RIGHT_INDEX = cfg["right_cam_index"]
-CAM_RESOLUTION = (cfg["original_frame_width"], cfg["original_frame_height"])  # (1280, 720)
-CROP_RESOLUTION = tuple(cfg["crop_size"])  # (640, 640)
+CAM_RESOLUTION = (cfg["original_frame_width"], cfg["original_frame_height"])  # e.g., (1280, 720)
+CROP_RESOLUTION = tuple(cfg["crop_size"])  # e.g., (640, 640)
 PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Calibration Parameters
@@ -102,6 +109,89 @@ def next_id(out_dir: Path, prefix: str) -> int:
     return len(existing) + 1
 
 # ========================================
+# 5-fingers detector (count-based)
+# ========================================
+class FiveFingersDetector:
+    """
+    Counts fingers using a simple heuristic:
+      - Index/Middle/Ring/Pinky: tip.y < pip.y -> "up" (image coords: smaller y = higher)
+      - Thumb: tip farther from wrist than IP -> "extended" (orientation-agnostic-ish)
+    Triggers when count == 5, held for `hold_seconds`.
+    """
+    def __init__(self, hold_seconds=2.0):
+        self.hands = mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.6
+        )
+        self.hold_seconds = hold_seconds
+        self.gesture_start_t = None
+        self.last_count = 0
+
+        # Thumb margin to avoid tiny jitter: normalized distance units
+        self.THUMB_MARGIN = 0.02
+
+    @staticmethod
+    def _dist(a, b):
+        dx, dy = a.x - b.x, a.y - b.y
+        return (dx*dx + dy*dy) ** 0.5
+
+    def _count_fingers(self, lm):
+        # Indices
+        IDX_TIP, IDX_PIP = 8, 6
+        MID_TIP, MID_PIP = 12, 10
+        RNG_TIP, RNG_PIP = 16, 14
+        PNK_TIP, PNK_PIP = 20, 18
+        TH_TIP, TH_IP    = 4, 3
+        WRIST            = 0
+
+        fingers_up = 0
+        # index/middle/ring/pinky up if tip higher (smaller y) than PIP
+        for tip, pip in [(IDX_TIP, IDX_PIP), (MID_TIP, MID_PIP), (RNG_TIP, RNG_PIP), (PNK_TIP, PNK_PIP)]:
+            if lm[tip].y < lm[pip].y:
+                fingers_up += 1
+
+        # thumb "extended" if tip farther from wrist than IP (robust to left/right)
+        d_tip_wr = self._dist(lm[TH_TIP], lm[WRIST])
+        d_ip_wr  = self._dist(lm[TH_IP],  lm[WRIST])
+        if d_tip_wr > d_ip_wr + self.THUMB_MARGIN:
+            fingers_up += 1
+
+        return fingers_up
+
+    def process(self, bgr_640):
+        """Return (count, is_target_now, seconds_held, annotated_frame)."""
+        image = bgr_640
+        rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+        res = self.hands.process(rgb)
+
+        count = 0
+        target_ok = False
+
+        if res.multi_hand_landmarks:
+            hand_lms = res.multi_hand_landmarks[0]
+            mp_draw.draw_landmarks(
+                image, hand_lms, mp_hands.HAND_CONNECTIONS,
+                mp_style.get_default_hand_landmarks_style(),
+                mp_style.get_default_hand_connections_style()
+            )
+            count = self._count_fingers(hand_lms.landmark)
+            target_ok = (count == 5)
+
+        # temporal hold logic
+        t = time.time()
+        if target_ok:
+            if self.gesture_start_t is None:
+                self.gesture_start_t = t
+        else:
+            self.gesture_start_t = None
+
+        held = 0.0 if self.gesture_start_t is None else (t - self.gesture_start_t)
+        self.last_count = count
+        return count, target_ok, held, image
+
+# ========================================
 # Mono Capture GUI
 # ========================================
 class MonoCaptureGUI:
@@ -115,10 +205,21 @@ class MonoCaptureGUI:
         self.status_color = (255, 255, 255)
         self.status_time = 0
 
+        # five-finger detector
+        self.detector = FiveFingersDetector(hold_seconds=2.0)
+        self.cooldown_t = 0.0
+        self.COOLDOWN_SEC = 1.0
+
     def show_status(self, text, color):
         self.status_text = text
         self.status_color = color
         self.status_time = time.time()
+
+    def _next_filename(self):
+        if self.active == "LEFT":
+            return f"left_{self.id_left:02}.png"
+        else:
+            return f"right_{self.id_right:02}.png"
 
     def capture_one(self, frame, cam_side: str):
         # Detect checkerboard
@@ -162,7 +263,8 @@ class MonoCaptureGUI:
             self.show_status(msg, (0, 0, 255))
 
     def run(self):
-        print("[INFO] Controls: TAB = switch camera, SPACE = capture, ESC = quit")
+        print("[INFO] Controls: TAB = switch camera, SPACE = manual capture, ESC = quit")
+        print("[INFO] Auto-capture: hold FIVE fingers up for 2 seconds")
         print("[INFO] Saving to:")
         print(f"       LEFT  -> {mono_left_dir}")
         print(f"       RIGHT -> {mono_right_dir}")
@@ -177,13 +279,40 @@ class MonoCaptureGUI:
 
             view = crop_center_640(frame)
 
+            # === Hand detection & finger count ===
+            count, ok, held, view = self.detector.process(view)
+
             # UI overlay
-            header = f"Active: {self.active} | MIN_SQUARE_PX={MIN_SQUARE_PX:.0f} | TAB: switch | SPACE: capture | ESC: quit"
+            header = (
+                f"Active: {self.active} | Next: {self._next_filename()} | "
+                f"MIN_SQUARE_PX={MIN_SQUARE_PX:.0f} | TAB switch | SPACE capture | ESC quit"
+            )
             cv.putText(view, header, (10, 28), cv.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
 
+            # Status text (recent events)
             if time.time() - self.status_time < 1.5:
                 cv.putText(view, self.status_text, (10, 60),
                            cv.FONT_HERSHEY_SIMPLEX, 0.8, self.status_color, 2)
+
+            # Finger info
+            cv.putText(view, f"Fingers Up: {count}",
+                       (10, 95), cv.FONT_HERSHEY_SIMPLEX, 0.8, (80, 200, 255), 2)
+
+            # Auto-capture overlay
+            if ok:
+                remaining = max(0.0, self.detector.hold_seconds - held)
+                color = (0, 220, 0) if remaining < 1.0 else (0, 200, 200)
+                cv.putText(view, f"5 fingers detected: capturing in {remaining:0.1f}s",
+                           (10, 125), cv.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            else:
+                cv.putText(view, "Hold FIVE fingers up to auto-capture",
+                           (10, 125), cv.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
+
+            # Auto-capture if held long enough (with a short cooldown)
+            now = time.time()
+            if ok and held >= self.detector.hold_seconds and (now - self.cooldown_t) > self.COOLDOWN_SEC:
+                self.capture_one(view, self.active)
+                self.cooldown_t = now  # debounce
 
             cv.imshow("Mono Checkerboard Capture", view)
             key = cv.waitKey(1) & 0xFF
@@ -193,8 +322,8 @@ class MonoCaptureGUI:
             elif key == 9:  # TAB
                 self.active = "RIGHT" if self.active == "LEFT" else "LEFT"
                 self.show_status(f"Switched to {self.active}", (0, 255, 255))
-            elif key == 32:  # SPACE
-                # capture from the currently active camera
+                self.detector.gesture_start_t = None  # reset hold timer on switch
+            elif key == 32:  # SPACE (manual fallback)
                 self.capture_one(view, self.active)
 
         print("[INFO] Closing window.")
