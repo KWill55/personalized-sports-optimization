@@ -29,19 +29,19 @@ SESSION = cfg["session"]
 BASE_DIR = Path(__file__).resolve().parents[3]
 SESSION_DIR = BASE_DIR / "data" / ATHLETE / SESSION
 ANGLES_DIR = SESSION_DIR / "metrics" / "3d_angles"
-PHASES_CSV = SESSION_DIR / "metrics" / "freethrow_phases.csv"
 
 # Input files
-FEATURES_FILE = SESSION_DIR / "analysis" / "phase_features.csv"
-OUTCOMES_FILE = SESSION_DIR / "analysis" / "outcomes.csv"
+PHASES_CSV = SESSION_DIR / "analysis" / "datasets" /  "freethrow_phases.csv"
+FEATURES_FILE = SESSION_DIR / "analysis" / "datasets" / "phase_features.csv"
+OUTCOMES_FILE = SESSION_DIR / "analysis" / "datasets" / "outcomes.csv"
 
 # Label column name in outcomes file (set to None to auto-detect)
 LABEL_COLUMN = "outcome"  # or None
 
 # Output files
-X_OUT_DIR = SESSION_DIR / "analysis" / "X.csv"
-Y_OUT_DIR = SESSION_DIR / "analysis" / "y.csv"
-MERGED_OUT_DIR = SESSION_DIR / "analysis" / "merged_dataset.csv"
+X_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "X.csv"
+Y_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "y.csv"
+MERGED_OUT_DIR = SESSION_DIR / "analysis" / "datasets" / "merged_dataset.csv"
 
 # Processing options
 BALANCE = "none"         # options: "none", "downsample", "upsample"
