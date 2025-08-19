@@ -54,7 +54,9 @@ PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Calibration Parameters
 CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
-MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
+# MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
+MIN_SQUARE_PX = 4 # yes I know this is way too small. TODO figure out if theres a way to salvage this script or if
+# its better to do intrinsics and extrinsics separately. do i still need cb pairs though? 
 
 # ========================================
 # Paths and Directories

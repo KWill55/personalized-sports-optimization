@@ -44,7 +44,7 @@ CALIBRATE_EVERY = cfg["calibrate_every"]
 WINDOW_SIZE = cfg["success_window"]
 
 # Video Parameters
-CAM_RESOLUTION = (cfg["frame_width"], cfg["frame_height"])
+CAM_RESOLUTION = (cfg["original_frame_width"], cfg["original_frame_height"])
 CROP_SIZE = tuple(cfg["crop_size"])  # (width, height)
 PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 

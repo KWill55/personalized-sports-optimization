@@ -32,3 +32,25 @@ athletes:
       erode_iters: 2
       dilate_iters: 4
       blur_ksize: 1
+
+
+    session_03:
+      
+      #values from create_hoop_regions.py
+      hoop_regions:
+        upper: [[811, 194], [875, 254]]
+        lower: [[811, 254], [875, 334]]
+      
+      #values from tune_ball_detection.py
+      hsv_ranges:
+        lower: [0, 46, 0]
+        upper: [8, 180, 255]
+
+      ball_area_px: {min: 400, max: 4000}
+      circularity_min: .65
+      fill_ratio_min: .65
+
+      min_motion: 5
+      erode_iters: 4
+      dilate_iters: 6
+      blur_ksize: 1

@@ -1,10 +1,10 @@
 # Session Information
 athlete: "alton_overson"
-session: "session_02"
+session: "session_03"
 
 # Calibration Parameters
-inner_corners: [5,4]     # Number of inner corners (columns, rows)
-square_size_cm: 3.4        # Size of one square in cm
+inner_corners: [5,4] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)
+square_size_cm: 3.4 # 3.4 session 1 session 3: 5.67       # Size of one square in cm
 calibrate_every: 50        # How often to update calibration preview
 success_window: 50         # Rolling detection success window
 min_square_px: 40

@@ -24,7 +24,7 @@ SESSION_DIR = BASE_DIR / "data" / ATHLETE / SESSION
 VIDEO_DIR = SESSION_DIR / "videos" / "ball_tracking" / "raw"
 
 # hoop region parameters
-UPPER_BOX_HEIGHT = 30
+UPPER_BOX_HEIGHT = 60
 LOWER_BOX_HEIGHT = 80
 BOX_PADDING = 1
 

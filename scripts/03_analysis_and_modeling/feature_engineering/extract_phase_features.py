@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parents[3]
 SESSION_DIR = BASE_DIR / "data" / ATHLETE / SESSION
 ANGLES_DIR = SESSION_DIR / "metrics" / "3d_angles"
 PHASES_CSV = SESSION_DIR / "metrics" / "freethrow_phases.csv"
-OUTPUT_CSV = SESSION_DIR / "analysis" / "phase_features.csv"
+OUTPUT_CSV = SESSION_DIR / "analysis" / "datasets" / "phase_features.csv"
 
 OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 

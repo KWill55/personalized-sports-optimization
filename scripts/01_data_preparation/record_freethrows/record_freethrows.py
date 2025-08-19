@@ -47,8 +47,8 @@ ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
 
 # Video Settings
-FRAME_WIDTH = int(cfg["frame_width"])
-FRAME_HEIGHT = int(cfg["frame_height"])
+FRAME_WIDTH = int(cfg["original_frame_width"])
+FRAME_HEIGHT = int(cfg["original_frame_height"])
 FPS_LEFT_RIGHT = float(cfg["player_tracking_fps"])
 FPS_THIRD = float(cfg["ball_tracking_fps"])
 GUI_REFRESH_MS = 30
