@@ -1,0 +1,11 @@
+description: Base model with all angles, velocities, and accelerations included
+include_features:
+  accelerations: true
+  angles: true
+  segments: false
+  velocities: true
+selected_columns:
+  angles: ALL
+  segments: []
+snapshot_version: v1.0
+version: v1.0

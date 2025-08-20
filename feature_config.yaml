@@ -1,0 +1,13 @@
+version: "v1.0" #this is not the same as model version
+description: "Base model with all angles, velocities, and accelerations included"
+
+include_features:
+  segments: false
+  angles: true
+  velocities: true
+  accelerations: true
+
+selected_columns:
+  angles: ALL
+  segments: []
+

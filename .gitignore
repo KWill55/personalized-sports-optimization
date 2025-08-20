@@ -10,3 +10,7 @@ __pycache__/
 *.npz
 *.pdf
 *.pickle
+*.svg
+*.npy
+*.json
+*.txt

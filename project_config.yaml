@@ -2,7 +2,7 @@
 athlete: "alton_overson"
 session: "session_03"
 
-# Calibration Parameters
+# Stereo Calibration Parameters
 inner_corners: [5,4] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)
 square_size_cm: 3.4 # 3.4 session 1 session 3: 5.67       # Size of one square in cm
 calibrate_every: 50        # How often to update calibration preview
@@ -19,10 +19,61 @@ left_cam_index: 1
 right_cam_index: 2
 third_cam_index: 4
 
+# FPS settings
 player_tracking_fps: 60
 ball_tracking_fps: 30
+
+# Feature Engineering 
+include_3d_angles: true
+include_3d_velocities: true
+include_3d_accelerations: true
+
 
 # Detection Thresholds
 threshold_detect: 0.7      # Success rate threshold for stability
 threshold_fl: 10           # Max allowed focal length diff (px)
 threshold_pp: 20           # Max allowed principal point diff (px)
+
+
+paths:
+  # Analysis
+  analysis: "data/{athlete}/{session}/analysis"
+  datasets: "data/{athlete}/{session}/analysis/datasets"
+  experiments: "data/{athlete}/{session}/analysis/datasets/experiments"
+  analysis_plots: "data/{athlete}/{session}/analysis/plots"
+  models: "data/{athlete}/{session}/analysis/models"
+
+  # Calibration
+  calibration: "data/{athlete}/{session}/calibration"
+  calib_images: "data/{athlete}/{session}/calibration/calib_images"
+  mono_left: "data/{athlete}/{session}/calibration/calib_images/mono_left"
+  mono_right: "data/{athlete}/{session}/calibration/calib_images/mono_right"
+  mono_intrinsics: "data/{athlete}/{session}/calibration/mono_intrinsics"
+  stereo_calibration: "data/{athlete}/{session}/calibration/stereo_calibration"
+
+  # Metrics
+  metrics: "data/{athlete}/{session}/metrics"
+  keypoints_2d: "data/{athlete}/{session}/metrics/2d_keypoints"
+  keypoints_3d: "data/{athlete}/{session}/metrics/3d_keypoints"
+  angles: "data/{athlete}/{session}/metrics/3d_angles"
+  velocities: "data/{athlete}/{session}/metrics/3d_velocities"
+  accelerations: "data/{athlete}/{session}/metrics/3d_accelerations"
+  ball_tracking_metrics: "data/{athlete}/{session}/metrics/ball_tracking_metrics"
+  phases: "data/{athlete}/{session}/metrics/freethrow_phases.csv"
+
+  # Videos
+  videos: "data/{athlete}/{session}/videos"
+  ball_tracking: "data/{athlete}/{session}/videos/ball_tracking"
+  ball_tracking_raw: "data/{athlete}/{session}/videos/ball_tracking/raw"
+  player_tracking: "data/{athlete}/{session}/videos/player_tracking"
+  player_tracking_2d: "data/{athlete}/{session}/videos/player_tracking/2d"
+  player_tracking_raw: "data/{athlete}/{session}/videos/player_tracking/raw"
+  player_tracking_left: "data/{athlete}/{session}/videos/player_tracking/raw/left"
+  player_tracking_right: "data/{athlete}/{session}/videos/player_tracking/raw/right"
+  player_tracking_sync: "data/{athlete}/{session}/videos/player_tracking/synchronized"
+
+  # Models 
+  experiments: "experiments"
+  feature_sets: "experiments/feature_sets"
+  runs: "experiments/runs"
+
