@@ -1,5 +1,5 @@
 version: "v1.0" #this is not the same as model version
-description: "Base model with all angles, velocities, and accelerations included"
+description: "Base model with all angles, velocities, and accelerations included over entire time series"
 
 include_features:
   segments: false

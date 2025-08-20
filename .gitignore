@@ -14,3 +14,4 @@ __pycache__/
 *.npy
 *.json
 *.txt
+*.joblib
