@@ -36,11 +36,13 @@ feature_cfg_path = ROOT_DIR / "feature_config.yaml"
 with open(feature_cfg_path, "r") as f:
     feature_cfg = yaml.safe_load(f)
 
-FEATURE_LABEL = str(feature_cfg.get("version", "unknown_version"))  # e.g., "ang_vel_acc"
-FEATURES_FILE = DATASETS_DIR / "features" / FEATURE_LABEL / f"phase_features_{FEATURE_LABEL}.csv"
+MODEL_TYPE = str(feature_cfg.get("model_type", "unknown_model"))  # e.g., "summary_stats" or "time_series"
+FEATURE_VERSION = str(feature_cfg.get("feature_version", "unknown_version"))  # e.g., "ang_vel_acc"
+FEATURES_FILE = DATASETS_DIR / "features" / MODEL_TYPE / FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
+
 
 # ---------- Variant-specific outputs ----------
-VARIANT_DIR = DATASETS_DIR / "features" / FEATURE_LABEL
+VARIANT_DIR = DATASETS_DIR / "features" / MODEL_TYPE / FEATURE_VERSION
 VARIANT_DIR.mkdir(parents=True, exist_ok=True)
 
 X_OUT_PATH = VARIANT_DIR / "X.csv"

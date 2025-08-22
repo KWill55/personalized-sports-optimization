@@ -39,13 +39,14 @@ INCLUDE_3D_VELOCITIES    = feature_cfg["include_features"].get("velocities", Fal
 INCLUDE_3D_ACCELERATIONS = feature_cfg["include_features"].get("accelerations", False)
 SELECTED_3D_ANGLES       = feature_cfg.get("selected_columns", {}).get("angles", None)
 
-VERSION = str(feature_cfg.get("version", "1.0"))  # fallback if not defined
+MODEL_TYPE = str(feature_cfg.get("model_type", "unknown_model"))  # e.g., "summary_stats" or "time_series"
+FEATURE_VERSION = str(feature_cfg.get("feature_version", "000"))  # fallback if not defined
 
 # -------------------------
 # Output paths
 # -------------------------
 
-OUTPUT_CSV = DATASETS_DIR / "features" / VERSION / f"phase_features_{VERSION}.csv"
+OUTPUT_CSV = DATASETS_DIR / "features" / MODEL_TYPE / FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
 OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 
 # -------------------------
@@ -176,7 +177,7 @@ def main():
 
     # Save the config snapshot into the same folder
     snapshot_path = OUTPUT_CSV.with_suffix(".features_used.yaml")
-    feature_cfg["snapshot_version"] = VERSION
+    feature_cfg["snapshot_version"] = FEATURE_VERSION
     with open(snapshot_path, "w") as f:
         yaml.dump(feature_cfg, f)
 
