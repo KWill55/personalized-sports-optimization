@@ -1,4 +1,4 @@
-version: "v1.3" # this is not the same as model version
+feature_version: "v1.3" # this is not the same as model version
 description: "Base model with top contributing angles only over selected phases and stats"
 
 include_features:
