@@ -1,6 +1,6 @@
 # Session Information
 athlete: "alton_overson"
-session: "session_03"
+session: "session_02"
 
 # Stereo Calibration Parameters
 inner_corners: [5,4] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)
@@ -24,9 +24,9 @@ player_tracking_fps: 60
 ball_tracking_fps: 30
 
 # Feature Engineering 
-include_3d_angles: true
-include_3d_velocities: true
-include_3d_accelerations: true
+# include_3d_angles: true
+# include_3d_velocities: false
+# include_3d_accelerations: false
 
 
 # Detection Thresholds
@@ -56,6 +56,7 @@ paths:
   keypoints_2d: "data/{athlete}/{session}/metrics/2d_keypoints"
   keypoints_3d: "data/{athlete}/{session}/metrics/3d_keypoints"
   angles: "data/{athlete}/{session}/metrics/3d_angles"
+  shortened_angles: "experiments/"
   velocities: "data/{athlete}/{session}/metrics/3d_velocities"
   accelerations: "data/{athlete}/{session}/metrics/3d_accelerations"
   ball_tracking_metrics: "data/{athlete}/{session}/metrics/ball_tracking_metrics"

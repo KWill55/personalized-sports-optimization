@@ -1,0 +1,11 @@
+description: Base model with all angles over entire time series
+include_features:
+  accelerations: false
+  angles: true
+  segments: false
+  velocities: false
+selected_columns:
+  angles: ALL
+  segments: []
+snapshot_version: v1.1
+version: v1.1

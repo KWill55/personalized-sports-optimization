@@ -1,0 +1,21 @@
+description: Base model with top contributing angles only over all phases and stats
+include_features:
+  accelerations: false
+  angles: true
+  segments: false
+  velocities: false
+selected_columns:
+  angles:
+  - knee_flex_r
+  - knee_flex_l
+  - ankle_flex_r
+  - ankle_flex_l
+  - elbow_flex_r
+  - elbow_flex_l
+  - hip_flex_r
+  - hip_flex_l
+  - shoulder_flex_r
+  - shoulder_flex_l
+  segments: []
+snapshot_version: v1.2
+version: v1.2
