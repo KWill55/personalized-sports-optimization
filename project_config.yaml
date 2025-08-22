@@ -1,6 +1,6 @@
 # Session Information
 athlete: "alton_overson"
-session: "session_02"
+session: "session_01"
 
 # Stereo Calibration Parameters
 inner_corners: [5,4] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)

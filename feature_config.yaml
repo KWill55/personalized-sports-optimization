@@ -1,6 +1,6 @@
-model_type: "time_series" # summary_stats or time_series
-feature_version: "v1.4_dummy" # suffix for the feature set 
-description: "???Base model with top contributing angles only over selected phases and stats"
+model_type: "summary_stats" # summary_stats or time_series
+feature_version: "v1.3_summary_stats" # suffix for the feature set 
+description: "Base model with top contributing angles only over selected phases and stats"
 
 include_features:
   segments: false

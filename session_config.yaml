@@ -3,17 +3,23 @@ athletes:
     
     session_01:
       hoop_regions: # Get these from create_hoop_regions.py
-        upper: [[634, 242], [685, 272]]
+        upper: [[634, 212], [685, 272]]
         lower: [[634, 272], [685, 352]]
-      hsv_ranges: # Get these from tune_hsv.py
-        lower: [0, 136, 105]
-        upper: [7, 193, 205]
-      ball_area_px: {min: 0, max: 2500}
-      circularity_min: 0 #.55
-      fill_ratio_min: 0 #.65
-    
-    session_02:
+      hsv_ranges:     
+        lower: [0, 75, 50]
+        upper: [12, 230, 200]
       
+      ball_area_px: {min: 400, max: 4000}
+      circularity_min: .7
+      fill_ratio_min: .65
+
+      min_motion: 5
+      erode_iters: 2
+      dilate_iters: 4
+      blur_ksize: 1
+    
+
+    session_02:
       #values from create_hoop_regions.py
       hoop_regions:
         upper: [[631, 174], [686, 234]]
@@ -35,7 +41,6 @@ athletes:
 
 
     session_03:
-      
       #values from create_hoop_regions.py
       hoop_regions:
         upper: [[811, 194], [875, 254]]
