@@ -17,13 +17,13 @@ This project is part of the Robotic Vision Lab at Brigham Young University, dire
 **Goal:**  
 Use computer vision and machine learning to help basketball players improve their free throw consistency by delivering personalized, biomechanically-informed feedback.
 
-Rather than imitating a one-size-fits-all NBA shooting form, we aim to identify the **individual optimal form** for each athlete using 3D motion analysis and AI.
+Rather than imitating a one-size-fits-all NBA shooting form, we aim to identify the individual optimal form for each athlete using 3D motion analysis and AI.
 
 
 ## Project Aims
 
 - Use 3D motion data to extract athlete-specific biomechanics.
-- Track basketball trajectories using synchronized multi-camera setup.
+- Track basketball trajectories and outcomes using synchronized multi-camera setup.
 - Build models that learn patterns between shooting form and performance.
 - Deliver actionable insights tailored to each athlete's unique style.
  
@@ -34,10 +34,6 @@ Rather than imitating a one-size-fits-all NBA shooting form, we aim to identify 
 - **2 Athlete-Tracking Cameras:** Capture full-body motion to extract joint angles and pose.
 - **1 Ball-Tracking Camera:** Focuses on ball trajectory and hoop interaction.
 
-**Flash Synchronization System:**
-- An Arduino Uno equipped with IR and LEDs signals all cameras simultaneously.
-- Used for accurate multi-camera synchronization at the start/end of each shot.
-
 
 ## Phase 1: Record 3D Free Throw Data
 
@@ -46,14 +42,12 @@ Capture synchronized video data of the athlete and basketball to prepare for mot
 
 **Outputs:**
 - Trimmed, synchronized video files (from all 3 angles)
-- Time-aligned frames based on flash sync
 
 **Steps:**
-- Record athlete motion using two cameras.
-- Record ball trajectory using a third camera.
-- Use LED flash to synchronize the video timelines.
-- Automatically trim videos to isolate free throw sequences.
-
+- Compute intrinsic/extrinsic camera parameters for stereo setup
+- Record athlete motion using stereo setup.
+- Record ball trajectory using third camera.
+- preprocess videos to prepare for phase 2
 
 ## Phase 2: Extract Key Metrics
 
@@ -61,13 +55,11 @@ Capture synchronized video data of the athlete and basketball to prepare for mot
 Extract biomechanical and performance metrics for each free throw.
 
 **Outputs:**
-- CSV files with athlete joint angles and ball trajectory data.
-- Combined dataset: pose + trajectory + outcome.
-- Feature matrix `X` and target labels `y` for ML models.
+- CSV files with athlete joint angles and other data as well as ball trajectory data.
 
 **Metrics:**
-- Elbow angle, release angle, shoulder-hip alignment, etc.
-- Arc, speed, distance, and angle of ball trajectory.
+- kinematic joint angles, velocity/acceleration of angles
+- Shot outcome (make/miss)
 
 
 ## Phase 3: Analyze Data to Produce Insights
@@ -76,34 +68,32 @@ Extract biomechanical and performance metrics for each free throw.
 Use the extracted features to train machine learning models that predict shot outcomes and recommend adjustments.
 
 **Outputs:**
-- Classification reports on shot success prediction.
+- Feature matrix `X` and target labels `y` for ML models.
+- Model performance
 - Visualizations of key trends and biomechanical efficiency.
 - Personalized suggestions (e.g., elbow angle optimization).
 
-**Planned Models:**
+**Current Models:**
 - Logistic Regression
-- Decision Trees / Random Forests
+- Linear SVC
+- Random Forest
 - Gradient Boosting
-- SVM / KNN
+- Gaussian NB
 
 ## Technologies Used
 
-- Python (OpenCV, NumPy, Pandas, scikit-learn)
+- Python (OpenCV, NumPy, Pandas, scikit-learn, tkinter, yaml)
 - MediaPipe (Pose Estimation)
-- Arduino (LED Sync)
-- GitHub for version control
 
 ## Future Work
 
 - Deploy model for real-time feedback via mobile/web app
-- Incorporate wrist, hand, and ball spin tracking
+- Incorporate wrist and hand tracking
 - Add Jetson Nano-based edge AI deployment
 - Train reinforcement learning model to suggest form corrections
 
 
-
 ## MISC
-
 git push origin main
 git push lab main
 
