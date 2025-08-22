@@ -107,9 +107,13 @@ record_freethrows: ## Record a freethrow session
 preprocessing-header: ## ✂️  Preprocssing Videos
 	@:
 
-trim_freethrows: ## GUI to trim freethrows manually
+trim_freethrows_time: ## GUI to trim freethrows manually
 	@echo "Opening GUI to trim freethrows..."
-	python $(preprocessing_dir)/trim_freethrows.py
+	python $(preprocessing_dir)/trim_freethrows_time.py
+
+trim_freethrows_frames: ## GUI to trim freethrows manually
+	@echo "Opening GUI to trim freethrows..."
+	python $(preprocessing_dir)/trim_freethrows_frames.py
 
 combine_player_feeds: ## combine player feeds
 	@echo "Combining left and right player feeds..."

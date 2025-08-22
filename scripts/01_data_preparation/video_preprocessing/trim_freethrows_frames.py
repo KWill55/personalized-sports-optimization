@@ -7,6 +7,8 @@ Video Trimmer (Player-style UI) — In-Place Overwrite
 - Trims OVERWRITE the current file (with confirmation)
 """
 
+# TODO make this like before where it saves to a new folder instead of overwriting 
+
 import os
 import cv2
 import tkinter as tk
