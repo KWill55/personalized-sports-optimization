@@ -34,8 +34,8 @@ feature_cfg_path = ROOT_DIR / "feature_config.yaml"
 with open(feature_cfg_path, "r") as f:
     feature_cfg = yaml.safe_load(f)
 
-INCLUDE_3D_ANGLES        = feature_cfg["include_features"].get("angles", True)
-INCLUDE_3D_VELOCITIES    = feature_cfg["include_features"].get("velocities", True)
+INCLUDE_3D_ANGLES        = feature_cfg["include_features"].get("angles", False)
+INCLUDE_3D_VELOCITIES    = feature_cfg["include_features"].get("velocities", False)
 INCLUDE_3D_ACCELERATIONS = feature_cfg["include_features"].get("accelerations", False)
 SELECTED_3D_ANGLES       = feature_cfg.get("selected_columns", {}).get("angles", None)
 
@@ -44,6 +44,7 @@ VERSION = str(feature_cfg.get("version", "1.0"))  # fallback if not defined
 # -------------------------
 # Output paths
 # -------------------------
+
 OUTPUT_CSV = DATASETS_DIR / "features" / VERSION / f"phase_features_{VERSION}.csv"
 OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 
@@ -157,6 +158,20 @@ def main():
 
     # Save compiled features
     features_df = pd.DataFrame(feature_rows)
+
+    # -------------------------
+    # After you build features_df but BEFORE saving:
+    # -------------------------
+    allow = set(feature_cfg.get("selected_features", {}).get("derived", []))
+    meta_cols = {"file", "windup_duration", "follow_duration", "total_duration"}
+
+    if allow:
+        keep_cols = [c for c in features_df.columns if (c in allow or c in meta_cols)]
+        features_df = features_df[keep_cols]
+
+    if OUTPUT_CSV.exists():
+        raise RuntimeError(f"{OUTPUT_CSV} already exists — bump version in YAML!")
+
     features_df.to_csv(OUTPUT_CSV, index=False)
 
     # Save the config snapshot into the same folder
