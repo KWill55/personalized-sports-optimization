@@ -1,10 +1,10 @@
 # Session Information
 athlete: "alton_overson"
-session: "session_01"
+session: "session_04"
 
 # Stereo Calibration Parameters
-inner_corners: [5,4] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)
-square_size_cm: 3.4 # 3.4 session 1 session 3: 5.67       # Size of one square in cm
+inner_corners: [9,7] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)
+square_size_cm: 5.67 # 3.4 session 1 session 3: 5.67       # Size of one square in cm
 calibrate_every: 50        # How often to update calibration preview
 success_window: 50         # Rolling detection success window
 min_square_px: 40
@@ -46,8 +46,9 @@ paths:
   # Calibration
   calibration: "data/{athlete}/{session}/calibration"
   calib_images: "data/{athlete}/{session}/calibration/calib_images"
-  mono_left: "data/{athlete}/{session}/calibration/calib_images/mono_left"
-  mono_right: "data/{athlete}/{session}/calibration/calib_images/mono_right"
+  calib_pairs: "data/{athlete}/{session}/calibration/calib_images/pairs"
+  calib_mono_left: "data/{athlete}/{session}/calibration/calib_images/mono_left"
+  calib_mono_right: "data/{athlete}/{session}/calibration/calib_images/mono_right"
   mono_intrinsics: "data/{athlete}/{session}/calibration/mono_intrinsics"
   stereo_calibration: "data/{athlete}/{session}/calibration/stereo_calibration"
 
@@ -61,6 +62,12 @@ paths:
   accelerations: "data/{athlete}/{session}/metrics/3d_accelerations"
   ball_tracking_metrics: "data/{athlete}/{session}/metrics/ball_tracking_metrics"
   phases: "data/{athlete}/{session}/metrics/freethrow_phases.csv"
+
+  #Features
+  features: "data/{athlete}/{session}/analysis/datasets/features"
+  summary_stats: "data/{athlete}/{session}/features/summary_stats"
+  time_series: "data/{athlete}/{session}/features/time_series"
+
 
   # Videos
   videos: "data/{athlete}/{session}/videos"

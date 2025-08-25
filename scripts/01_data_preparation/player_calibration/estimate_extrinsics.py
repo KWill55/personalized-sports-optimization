@@ -5,15 +5,25 @@ import yaml
 
 # ------------------- config & paths -------------------
 cfg_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
-cfg = yaml.safe_load(open(cfg_path, "r"))
+project_cfg = yaml.safe_load(open(cfg_path, "r"))
 
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+ATHLETE = project_cfg["athlete"]
+SESSION = project_cfg["session"]
 
-base = Path(__file__).resolve().parents[3] / "data" / ATHLETE / SESSION
-calib_dir = base / "calibration"
-mono_dir  = calib_dir / "mono_intrinsics"
-pairs_dir = calib_dir / "calib_images"
+calib_dir = Path(project_cfg["paths"]["calibration"].format(
+    athlete=ATHLETE,
+    session=SESSION
+))
+
+mono_dir = Path(project_cfg["paths"]["mono_intrinsics"].format(
+    athlete=ATHLETE,
+    session=SESSION
+))
+
+pairs_dir = Path(project_cfg["paths"]["calib_pairs"].format(
+    athlete=ATHLETE,
+    session=SESSION
+))
 
 left_npz  = mono_dir / "intrinsics_left.npz"
 right_npz = mono_dir / "intrinsics_right.npz"

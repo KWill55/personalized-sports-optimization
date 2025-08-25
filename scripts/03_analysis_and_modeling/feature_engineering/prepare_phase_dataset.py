@@ -17,32 +17,35 @@ import numpy as np
 from sklearn.utils import resample
 import sys
 
-# --- repo root on sys.path so 'utils' is importable ---
-ROOT_DIR = Path(__file__).resolve().parents[3]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
 
-from utils.translate_config import load_paths  # your helper
+project_cfg_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+project_cfg = yaml.safe_load(open(project_cfg_path, "r"))
 
-# ---------- Load project + paths ----------
-project_cfg_path = ROOT_DIR / "project_config.yaml"
-paths = load_paths(project_cfg_path)
+ATHLETE = project_cfg["athlete"]
+SESSION = project_cfg["session"]
 
-DATASETS_DIR = paths["datasets"]             # data/{athlete}/{session}/analysis/datasets
+DATASETS_DIR = Path(project_cfg["paths"]["datasets"].format(
+    athlete=ATHLETE,
+    session=SESSION
+))
+
 OUTCOMES_FILE = DATASETS_DIR / "outcomes.csv"
 
 # ---------- Load feature config (to get the variant label) ----------
-feature_cfg_path = ROOT_DIR / "feature_config.yaml"
-with open(feature_cfg_path, "r") as f:
-    feature_cfg = yaml.safe_load(f)
+feature_cfg_path = Path(__file__).resolve().parents[3] / "feature_config.yaml"
+feature_cfg = yaml.safe_load(open(feature_cfg_path, "r"))
 
 MODEL_TYPE = str(feature_cfg.get("model_type", "unknown_model"))  # e.g., "summary_stats" or "time_series"
 FEATURE_VERSION = str(feature_cfg.get("feature_version", "unknown_version"))  # e.g., "ang_vel_acc"
-FEATURES_FILE = DATASETS_DIR / "features" / MODEL_TYPE / FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
 
+FEATURES_DIR = (
+    Path(project_cfg["paths"]["features"].format(
+        athlete=project_cfg["athlete"],
+        session=project_cfg["session"],
+    )))
 
-# ---------- Variant-specific outputs ----------
-VARIANT_DIR = DATASETS_DIR / "features" / MODEL_TYPE / FEATURE_VERSION
+FEATURES_FILE = FEATURES_DIR / MODEL_TYPE/ FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
+VARIANT_DIR = FEATURES_DIR / MODEL_TYPE / FEATURE_VERSION
 VARIANT_DIR.mkdir(parents=True, exist_ok=True)
 
 X_OUT_PATH = VARIANT_DIR / "X.csv"

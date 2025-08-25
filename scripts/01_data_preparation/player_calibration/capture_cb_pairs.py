@@ -39,21 +39,21 @@ import numpy as np
 # Load YAML Config
 config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
 with open(config_path, "r") as f:
-    cfg = yaml.safe_load(f)
+    project_cfg = yaml.safe_load(f)
 
 #session info 
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+ATHLETE = project_cfg["athlete"]
+SESSION = project_cfg["session"]
 
 # Camera Parameters
-CAM_LEFT_INDEX = cfg["left_cam_index"]
-CAM_RIGHT_INDEX = cfg["right_cam_index"]
-CAM_RESOLUTION = (cfg["original_frame_width"], cfg["original_frame_height"])  # (1280, 720)
-CROP_RESOLUTION = tuple(cfg["crop_size"])  # (640, 640)
-PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
+CAM_LEFT_INDEX = project_cfg["left_cam_index"]
+CAM_RIGHT_INDEX = project_cfg["right_cam_index"]
+CAM_RESOLUTION = (project_cfg["original_frame_width"], project_cfg["original_frame_height"])  # (1280, 720)
+CROP_RESOLUTION = tuple(project_cfg["crop_size"])  # (640, 640)
+PLAYER_TRACKING_FPS = project_cfg["player_tracking_fps"]
 
 # Calibration Parameters
-CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
+CHECKERBOARD = tuple(project_cfg["inner_corners"])  # (columns, rows)
 # MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
 MIN_SQUARE_PX = 4 # yes I know this is way too small. TODO figure out if theres a way to salvage this script or if
 # its better to do intrinsics and extrinsics separately. do i still need cb pairs though? 
@@ -61,11 +61,8 @@ MIN_SQUARE_PX = 4 # yes I know this is way too small. TODO figure out if theres 
 # ========================================
 # Paths and Directories
 # ========================================
-base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
-calib_dir = session_dir / "calibration" / "calib_images"
+calib_dir = project_cfg["calib_pairs"]
 calib_dir.mkdir(parents=True, exist_ok=True)
-
 
 # ========================================
 # Camera Thread
