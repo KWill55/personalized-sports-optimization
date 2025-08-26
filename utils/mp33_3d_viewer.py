@@ -9,7 +9,11 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
 import yaml
+import re
 
+# =========================
+# Config
+# =========================
 config_path = Path(__file__).resolve().parents[1] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
@@ -23,9 +27,18 @@ FPS = cfg["player_tracking_fps"]
 # =========================
 base_dir = Path(__file__).resolve().parents[1]
 session_dir = base_dir / "data" / ATHLETE / SESSION
-default_angles_dir = session_dir / "metrics" / "angles"  # you can override this in the UI
+default_angles_dir = session_dir / "metrics" / "angles"  # overrideable in UI
 
-# MediaPipe 33 landmark names (order must match CSV)
+# Heuristics for where phases might live (tried in order)
+PHASE_FILE_CANDIDATES = [
+    session_dir / "phases" / "freethrow_phases.csv",
+    session_dir / "metrics" / "phases" / "freethrow_phases.csv",
+    session_dir / "freethrow_phases.csv",
+]
+
+# =========================
+# MediaPipe 33 metadata
+# =========================
 NAMES = [
     "nose","left_eye_inner","left_eye","left_eye_outer","right_eye_inner","right_eye","right_eye_outer",
     "left_ear","right_ear","mouth_left","mouth_right",
@@ -50,7 +63,9 @@ EDGES = np.array([
     [0,11],[0,12],     # head to shoulders
 ], dtype=int)
 
-# -------- I/O: keypoints --------
+# =========================
+# Keypoint I/O
+# =========================
 def load_mp33_csv(path: Path) -> np.ndarray:
     df = pd.read_csv(path)
     if "frame" in df.columns:
@@ -69,7 +84,9 @@ def load_mp33_csv(path: Path) -> np.ndarray:
     arr = arr.reshape(T, len(NAMES), 3)  # (T,33,3)
     return arr
 
-# -------- angles: compute (fallback) --------
+# =========================
+# Angle computation
+# =========================
 def _series_points(frames, name):
     return frames[:, IDX[name], :]  # (T,3)
 
@@ -109,7 +126,9 @@ def compute_angles(frames):
     ang["ankle_flex_r"]     = angle_series(frames, "right_knee",     "right_ankle","right_foot_index")
     return ang
 
-# -------- external angles I/O --------
+# =========================
+# Angles I/O
+# =========================
 def name_match_candidates(keypoints_csv: Path):
     """Return possible angle filenames (stemwise) derived from a *_3d.csv."""
     stem = keypoints_csv.stem
@@ -139,6 +158,113 @@ def load_angles_csv(angles_csv: Path):
     ang = {c: df[c].to_numpy(float) for c in cols}
     return ang, cols, len(df)
 
+# =========================
+# Phases I/O (triplets per clip)
+# =========================
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", "_", s.strip().lower())
+
+def _canonical_clip_key(path_or_name: str) -> str:
+    """
+    Canonicalize a file name/stem so that:
+      freethrow001.csv
+      freethrow001_3d.csv
+      freethrow001_angles.csv
+    all map to 'freethrow001'.
+    """
+    s = _norm(Path(path_or_name).stem)
+    s = re.sub(r"_(3d|angles)$", "", s)  # drop trailing markers
+    return s
+
+def _auto_phase_file_hints(current_keypoints_file: Path | None) -> list[Path]:
+    hints = []
+    hints.extend(PHASE_FILE_CANDIDATES)
+    if current_keypoints_file is not None:
+        hints.append(current_keypoints_file.parent / "freethrow_phases.csv")
+        hints.append(current_keypoints_file.parent.parent / "freethrow_phases.csv")
+    seen, out = set(), []
+    for p in hints:
+        if p not in seen:
+            out.append(p); seen.add(p)
+    return out
+
+def _build_phase_array_triplets(T: int, df: pd.DataFrame, file_stem: str | None) -> tuple[np.ndarray, str]:
+    """
+    Expected columns (case-insensitive / space-insensitive):
+      file, windup_start, release_frame, followthrough_end
+    Only the row matching the current clip is used (by filename).
+    """
+    dfl = df.copy()
+    dfl.columns = [_norm(c) for c in dfl.columns]
+
+    needed = {"file", "windup_start", "release_frame", "followthrough_end"}
+    if not needed.issubset(set(dfl.columns)):
+        raise ValueError("freethrow_phases.csv must have columns: "
+                         "'file', 'windup_start', 'release_frame', 'followthrough_end'.")
+
+    if file_stem is None:
+        raise ValueError("No current clip to match phases against.")
+
+    want_key = _canonical_clip_key(file_stem)
+    dfl["_key"] = dfl["file"].astype(str).apply(_canonical_clip_key)
+    sub = dfl[dfl["_key"] == want_key]
+    if sub.empty:
+        raise ValueError(f"No phase row found for clip '{file_stem}' (key '{want_key}').")
+
+    r = sub.iloc[0]
+    ws = int(r["windup_start"])
+    rf = int(r["release_frame"])
+    fe = int(r["followthrough_end"])
+
+    if not (0 <= ws <= rf <= fe):
+        raise ValueError(f"Invalid triplet order for '{r['file']}': "
+                         f"windup_start={ws}, release_frame={rf}, followthrough_end={fe}")
+
+    phases = np.full(T, "", dtype=object)
+
+    def rng(a, b):
+        a = max(0, int(a))
+        b = min(T - 1, int(b))
+        if b >= a:
+            return a, b
+        return None
+
+    # windup: ws .. rf-1
+    wb = rng(ws, rf - 1)
+    if wb:
+        a, b = wb
+        phases[a:b+1] = "windup"
+
+    # release: rf
+    if 0 <= rf < T:
+        phases[rf] = "release"
+
+    # followthrough: rf+1 .. fe
+    fb = rng(rf + 1, fe)
+    if fb:
+        a, b = fb
+        phases[a:b+1] = "followthrough"
+
+    return phases, "triplets (windup/release/followthrough)"
+
+def try_autoload_phases(current_keypoints: Path | None, T: int) -> tuple[np.ndarray | None, str]:
+    """
+    Autoload phases for the current clip using triplet-per-clip CSV if found.
+    """
+    file_stem = current_keypoints.stem if current_keypoints is not None else None
+    for cand in _auto_phase_file_hints(current_keypoints):
+        if cand.exists():
+            try:
+                df = pd.read_csv(cand)
+                arr, mode = _build_phase_array_triplets(T, df, file_stem)
+                return arr, f"{cand.name} ({mode})"
+            except Exception:
+                continue
+    return None, "(none)"
+
+# =========================
+# Viewer
+# =========================
 class MP33Viewer:
     def __init__(self, root):
         self.root = root
@@ -148,11 +274,18 @@ class MP33Viewer:
         self.i = 0
         self.frames = None   # (T,33,3)
         self.T = 0
+
+        # angles
         self.angles = None   # dict name -> (T,)
         self.angle_names = []
         self.angle_source = tk.StringVar(value="angles: (none)")
-        self.angles_dir_override = None  # set when user picks a folder
+        self.angles_dir_override = None
 
+        # phases
+        self.phases = None
+        self.phase_source = tk.StringVar(value="phases: (none)")
+
+        # playback
         self.t = 0
         self.playing = False
         self.after_id = None
@@ -165,9 +298,8 @@ class MP33Viewer:
 
         Label(root, text="3D Pose Viewer (MediaPipe 33)", font=("Helvetica", 18, "bold")).pack(pady=(8,2))
 
-        # ----- top row: plot on left, angles panel on right -----
+        # top row: plot + side panel
         top = tk.Frame(root); top.pack(padx=6, pady=6, fill="both", expand=True)
-
         fig_frame = tk.Frame(top); fig_frame.pack(side="left", fill="both", expand=True)
         side_panel = tk.Frame(top); side_panel.pack(side="right", fill="y", padx=(10,0))
 
@@ -185,17 +317,23 @@ class MP33Viewer:
         self.scatter = self.ax.scatter([], [], [], s=30)
         self.lines = [self.ax.plot([], [], [], linewidth=2, color="gray")[0] for _ in range(len(EDGES))]
 
-        # angles panel
+        # PHASE display
+        Label(side_panel, text="Current Phase", font=("Helvetica", 12, "bold")).pack(anchor="w", pady=(0,2))
+        self.phase_now = tk.StringVar(value="—")
+        ph_lbl = Label(side_panel, textvariable=self.phase_now, font=("Helvetica", 14, "bold"))
+        ph_lbl.pack(anchor="w", pady=(0,4))
+        Label(side_panel, textvariable=self.phase_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(0,8))
+
+        # Angles panel
         Label(side_panel, text="Angles (deg)", font=("Helvetica", 12, "bold")).pack(anchor="w")
         self.angles_text = tk.Text(side_panel, width=28, height=24, font=("Menlo", 11))
         self.angles_text.pack(fill="y")
         self.angles_text.configure(state="disabled")
-        # colored tags for increasing/decreasing
         self.angles_text.tag_configure("inc", foreground="#1a7f37")  # green
         self.angles_text.tag_configure("dec", foreground="#d73a49")  # red
         Label(side_panel, textvariable=self.angle_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(6,0))
 
-        # controls row
+        # controls
         controls = tk.Frame(root); controls.pack(pady=6)
         Button(controls, text="Load 3D Folder",      command=self.load_folder).grid(row=0, column=0, padx=5)
         Button(controls, text="Angles Folder…",       command=self.choose_angles_folder).grid(row=0, column=1, padx=5)
@@ -208,6 +346,7 @@ class MP33Viewer:
         Button(controls, text="Zoom +",               command=lambda: self.zoom(0.8)).grid(row=0, column=8, padx=8)
         Button(controls, text="Zoom −",               command=lambda: self.zoom(1.25)).grid(row=0, column=9, padx=4)
         Button(controls, text="Reset View",           command=self.reset_view).grid(row=0, column=10, padx=8)
+        Button(controls, text="Load Phases…",         command=self.load_phases_file).grid(row=0, column=11, padx=10)
 
         self.info = tk.StringVar(value="No file loaded")
         Label(root, textvariable=self.info, font=("Helvetica", 12)).pack(pady=(0,8))
@@ -253,12 +392,11 @@ class MP33Viewer:
         self.zoom_scale = 1.0
         self._view_initialized = False
 
-        # Try to load matching angles from chosen folder (or default), else compute
+        # angles: try matching external CSV, else compute
         ap = find_angles_for_file(path, self.angles_dir_override, default_angles_dir)
         if ap is not None:
             try:
-                ang, names, L = load_angles_csv(ap)
-                # clip to current T if needed
+                ang, names, _ = load_angles_csv(ap)
                 for k in ang:
                     if len(ang[k]) > self.T:
                         ang[k] = ang[k][:self.T]
@@ -274,9 +412,41 @@ class MP33Viewer:
             self.angle_names = list(self.angles.keys())
             self.angle_source.set("angles: computed")
 
+        # phases: try to autoload for this clip
+        self.phases, src = try_autoload_phases(path, self.T)
+        self.phase_source.set(f"phases: {src}")
+        if self.phases is None:
+            self.phase_now.set("—")
+
         self.redraw()
         self.info.set(f"{path.name}  |  frames: {self.T}  |  joints: 33")
 
+    # -------- phases loading (manual) --------
+    def load_phases_file(self):
+        initial_dirs = [d.parent for d in PHASE_FILE_CANDIDATES if d.parent.exists()]
+        initial = initial_dirs[0] if initial_dirs else session_dir
+        f = filedialog.askopenfilename(
+            initialdir=initial if initial.exists() else session_dir,
+            title="Select freethrow_phases.csv",
+            filetypes=[("CSV", "*.csv")]
+        )
+        if not f:
+            return
+        try:
+            if self.frames is None:
+                raise ValueError("Load a 3D file first so I can match the clip row.")
+            df = pd.read_csv(f)
+            file_stem = self.files[self.i].stem if self.files else None
+            arr, mode = _build_phase_array_triplets(self.T, df, file_stem)
+            self.phases = arr
+            self.phase_source.set(f"phases: {Path(f).name} ({mode})")
+            self.redraw()
+        except Exception as e:
+            self.phases = None
+            self.phase_source.set(f"phases: failed to load ({Path(f).name}: {e})")
+            self.phase_now.set("—")
+
+    # -------- angles folder select --------
     def choose_angles_folder(self):
         folder = filedialog.askdirectory(
             initialdir=default_angles_dir if default_angles_dir.exists() else session_dir,
@@ -285,12 +455,10 @@ class MP33Viewer:
         if not folder:
             return
         self.angles_dir_override = Path(folder)
-        # reload current file to pick up angles from new folder
         if self.files:
             self.open_file(self.files[self.i])
 
     def load_angles_file(self):
-        """Manually choose one angles CSV to override current angles."""
         initial = self.angles_dir_override or default_angles_dir
         f = filedialog.askopenfilename(
             initialdir=initial if initial.exists() else session_dir,
@@ -300,7 +468,7 @@ class MP33Viewer:
         if not f:
             return
         try:
-            ang, names, L = load_angles_csv(Path(f))
+            ang, names, _ = load_angles_csv(Path(f))
             if self.frames is not None:
                 for k in ang:
                     if len(ang[k]) > self.T:
@@ -313,7 +481,8 @@ class MP33Viewer:
 
     # -------- drawing --------
     def redraw(self):
-        if self.frames is None: return
+        if self.frames is None:
+            return
         pts = self.frames[self.t]  # (33,3)
 
         # valid mask
@@ -356,13 +525,18 @@ class MP33Viewer:
             self.ax.view_init(self.init_elev, self.init_azim)
             self._view_initialized = True
 
-        # update angles panel (with color per trend)
+        # update phase label
+        if self.phases is not None and 0 <= self.t < len(self.phases) and isinstance(self.phases[self.t], str) and self.phases[self.t] != "":
+            self.phase_now.set(self.phases[self.t])
+        else:
+            self.phase_now.set("—")
+
+        # update angles panel
         self.update_angles_panel()
 
         self.canvas.draw_idle()
         if self.files:
             self.info.set(f"{self.files[self.i].name}  |  frame: {self.t+1}/{self.T}  |  joints: 33")
-
 
     def update_angles_panel(self):
         self.angles_text.configure(state="normal")
@@ -377,7 +551,6 @@ class MP33Viewer:
         for name in self.angle_names:
             arr = self.angles[name]
             val = arr[t] if t < len(arr) else np.nan
-            # trend detection vs previous frame
             tag = None
             if t > 0 and t < len(arr) and np.isfinite(val) and np.isfinite(arr[t-1]):
                 d = val - arr[t-1]
@@ -448,6 +621,9 @@ class MP33Viewer:
     def on_close(self):
         self.root.quit()
 
+# =========================
+# Main
+# =========================
 if __name__ == "__main__":
     root = tk.Tk()
     app = MP33Viewer(root)
