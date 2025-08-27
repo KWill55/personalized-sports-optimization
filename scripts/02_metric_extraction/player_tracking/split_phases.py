@@ -9,6 +9,9 @@ Output:
     - CSV summarizing: windup_start, release_frame, followthrough_end for each file
 """
 
+#TODO add angle smoothing 
+#TODO maybe fourth phase (splitting windup into windup_bend and windup_extend)
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -26,7 +29,8 @@ ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
 FPS     = cfg["player_tracking_fps"]
 
-SHOULDER_THRESHOLD = 50 #degrees 
+SHOULDER_THRESHOLD = 100 #degrees 
+WINDUP_SHOULDER_MIN = 30 #degrees
 
 base_dir    = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
@@ -45,9 +49,7 @@ def compute_velocity(series_deg: pd.Series, dt: float) -> pd.Series:
     return v.fillna(0.0)
 
 def detect_throw_phases_from_angles(df_angles: pd.DataFrame, fps: int,
-                                    threshold=10.0, window=3,
-                                    SHOULDER_THRESHOLD=50.0,
-                                    WINDUP_SHOULDER_MIN=30.0):
+                                    threshold=10.0, window=3):
     """
     df_angles must have columns: elbow_flex_r (deg), shoulder_flex_r (deg)
     threshold is deg/s for avg velocity of these two angles.
@@ -77,7 +79,7 @@ def detect_throw_phases_from_angles(df_angles: pd.DataFrame, fps: int,
     # Follow-through end: first frame after release when shoulder drops below the min angle
     followthrough_end = len(df_angles) - 1
     for i in range(release_frame + 1, len(df_angles)):
-        if df_angles["shoulder_flex_r"].iloc[i] < WINDUP_SHOULDER_MIN:
+        if df_angles["shoulder_flex_r"].iloc[i] < SHOULDER_THRESHOLD:
             followthrough_end = i
             break
 
@@ -106,7 +108,8 @@ def load_angles_csv(path: Path) -> pd.DataFrame:
     if missing:
         raise ValueError(f"{path.name} missing columns: {missing}")
     # basic NaN handling
-    return df[["elbow_flex_r", "shoulder_flex_r"]].astype(float).interpolate(limit_direction="both").fillna(method="bfill").fillna(method="ffill")
+    return df[["elbow_flex_r", "shoulder_flex_r"]].astype(float)\
+        .interpolate(limit_direction="both").bfill().ffill()
 
 # ==============================
 # Main
