@@ -238,6 +238,10 @@ extract_phase_features: ## Extract features from phases
 	@echo "Extracting features from phases..."
 	python $(feature_engineering_dir)/extract_phase_features.py
 
+extract_phase_features_time_series: ## Extract time series features from phases
+	@echo "Extracting features from phases..."
+	python $(feature_engineering_dir)/extract_phase_features_time_series.py
+
 prepare_phase_dataset: ## Merge features and labels for analysis 
 	@echo "Merging features.csv and outcomes.csv..."
 	python $(feature_engineering_dir)/prepare_phase_dataset.py

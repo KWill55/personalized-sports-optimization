@@ -1,0 +1,73 @@
+description: Base model with top contributing angles only over selected phases and
+  stats, now with 4 sessions
+feature_version: v1.4_correct_phases
+include_features:
+  accelerations: false
+  angles: true
+  segments: false
+  velocities: false
+model_type: summary_stats
+selected_columns:
+  angles:
+  - knee_flex_r
+  - knee_flex_l
+  - ankle_flex_r
+  - ankle_flex_l
+  - elbow_flex_r
+  - elbow_flex_l
+  - hip_flex_r
+  - hip_flex_l
+  - shoulder_flex_r
+  - shoulder_flex_l
+  segments: []
+selected_features:
+  derived:
+  - knee_flex_r_follow_std
+  - knee_flex_l_windup_mean
+  - ankle_flex_r_follow_std
+  - knee_flex_r_follow_mean
+  - elbow_flex_r_windup_mean
+  - knee_flex_r_follow_range
+  - elbow_flex_l_follow_total_change
+  - ankle_flex_r_windup_mean
+  - knee_flex_r_follow_min
+  - hip_flex_l_follow_range
+  - ankle_flex_l_windup_std
+  - knee_flex_r_windup_mean
+  - hip_flex_r_follow_std
+  - ankle_flex_r_windup_max
+  - ankle_flex_r_windup_min
+  - hip_flex_l_release_value
+  - hip_flex_l_windup_min
+  - ankle_flex_l_windup_total_change
+  - hip_flex_r_follow_min
+  - shoulder_flex_l_follow_total_change
+  - shoulder_flex_l_release_value
+  - shoulder_flex_r_windup_mean
+  - elbow_flex_l_follow_range
+  - knee_flex_l_release_value
+  - hip_flex_l_follow_max
+  - ankle_flex_l_windup_mean
+  - elbow_flex_l_windup_total_change
+  - hip_flex_l_windup_total_change
+  - ankle_flex_l_windup_range
+  - hip_flex_r_follow_range
+  - elbow_flex_l_follow_min
+  - hip_flex_r_follow_total_change
+  - ankle_flex_r_windup_range
+  - hip_flex_l_follow_std
+  - elbow_flex_l_windup_mean
+  - hip_flex_l_windup_range
+  - shoulder_flex_l_follow_min
+  - shoulder_flex_l_windup_min
+  - knee_flex_l_windup_max
+  - ankle_flex_r_windup_total_change
+  - ankle_flex_r_follow_range
+  - shoulder_flex_l_windup_std
+  - knee_flex_l_windup_std
+  - shoulder_flex_r_windup_min
+  - hip_flex_r_windup_total_change
+  - knee_flex_r_windup_range
+  - hip_flex_r_windup_mean
+  - ankle_flex_r_windup_std
+snapshot_version: v1.4_correct_phases
