@@ -285,6 +285,10 @@ class MP33Viewer:
         self.phases = None
         self.phase_source = tk.StringVar(value="phases: (none)")
 
+        # merged features/labels
+        self.merged_df = None
+        self.merged_source = tk.StringVar(value="features: (none)")
+
         # playback
         self.t = 0
         self.playing = False
@@ -324,20 +328,40 @@ class MP33Viewer:
         ph_lbl.pack(anchor="w", pady=(0,4))
         Label(side_panel, textvariable=self.phase_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(0,8))
 
-        # Angles panel
+        # Angles panel (with scrollbar)
         Label(side_panel, text="Angles (deg)", font=("Helvetica", 12, "bold")).pack(anchor="w")
-        self.angles_text = tk.Text(side_panel, width=28, height=24, font=("Menlo", 11))
-        self.angles_text.pack(fill="y")
+        angles_frame = tk.Frame(side_panel); angles_frame.pack(fill="y")
+        self.angles_text = tk.Text(angles_frame, width=28, height=18, font=("Menlo", 11), wrap="none")
+        self.angles_scroll = tk.Scrollbar(angles_frame, orient="vertical", command=self.angles_text.yview)
+        self.angles_text.configure(yscrollcommand=self.angles_scroll.set)
+        self.angles_text.grid(row=0, column=0, sticky="nsew")
+        self.angles_scroll.grid(row=0, column=1, sticky="ns")
+        angles_frame.grid_rowconfigure(0, weight=1)
+        angles_frame.grid_columnconfigure(0, weight=1)
         self.angles_text.configure(state="disabled")
         self.angles_text.tag_configure("inc", foreground="#1a7f37")  # green
         self.angles_text.tag_configure("dec", foreground="#d73a49")  # red
-        Label(side_panel, textvariable=self.angle_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(6,0))
+        Label(side_panel, textvariable=self.angle_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(6,8))
+
+        # Features / Labels panel (with scrollbar)
+        Label(side_panel, text="Features / Labels (merged.csv)", font=("Helvetica", 12, "bold")).pack(anchor="w")
+        merged_frame = tk.Frame(side_panel); merged_frame.pack(fill="both", expand=False)
+        self.merged_text = tk.Text(merged_frame, width=28, height=14, font=("Menlo", 11), wrap="none")
+        self.merged_scroll = tk.Scrollbar(merged_frame, orient="vertical", command=self.merged_text.yview)
+        self.merged_text.configure(yscrollcommand=self.merged_scroll.set)
+        self.merged_text.grid(row=0, column=0, sticky="nsew")
+        self.merged_scroll.grid(row=0, column=1, sticky="ns")
+        merged_frame.grid_rowconfigure(0, weight=1)
+        merged_frame.grid_columnconfigure(0, weight=1)
+        self.merged_text.configure(state="disabled")
+        Label(side_panel, textvariable=self.merged_source, font=("Helvetica", 10, "italic")).pack(anchor="w", pady=(6,0))
 
         # controls
         controls = tk.Frame(root); controls.pack(pady=6)
         Button(controls, text="Load 3D Folder",      command=self.load_folder).grid(row=0, column=0, padx=5)
         Button(controls, text="Angles Folder…",       command=self.choose_angles_folder).grid(row=0, column=1, padx=5)
-        Button(controls, text="Angles File (one)…",   command=self.load_angles_file).grid(row=0, column=2, padx=5)
+        # REPLACED: "Angles File (one)…" -> "Load merged.csv…"
+        Button(controls, text="Load merged.csv…",     command=self.load_merged_csv).grid(row=0, column=2, padx=5)
         Button(controls, text="Previous File",        command=self.prev_file).grid(row=0, column=3, padx=5)
         Button(controls, text="Play/Pause",           command=self.toggle_play).grid(row=0, column=4, padx=5)
         Button(controls, text="Next File",            command=self.next_file).grid(row=0, column=5, padx=5)
@@ -419,6 +443,7 @@ class MP33Viewer:
             self.phase_now.set("—")
 
         self.redraw()
+        self.update_merged_panel()  # update features for this clip
         self.info.set(f"{path.name}  |  frames: {self.T}  |  joints: 33")
 
     # -------- phases loading (manual) --------
@@ -458,26 +483,36 @@ class MP33Viewer:
         if self.files:
             self.open_file(self.files[self.i])
 
-    def load_angles_file(self):
-        initial = self.angles_dir_override or default_angles_dir
+    # -------- merged.csv loading --------
+    def load_merged_csv(self):
+        initial = session_dir
         f = filedialog.askopenfilename(
-            initialdir=initial if initial.exists() else session_dir,
-            title="Select angles CSV",
+            initialdir=initial if initial.exists() else Path.home(),
+            title="Select merged.csv",
             filetypes=[("CSV", "*.csv")]
         )
         if not f:
             return
         try:
-            ang, names, _ = load_angles_csv(Path(f))
-            if self.frames is not None:
-                for k in ang:
-                    if len(ang[k]) > self.T:
-                        ang[k] = ang[k][:self.T]
-            self.angles, self.angle_names = ang, names
-            self.angle_source.set(f"angles: external ({Path(f).name})")
-            self.redraw()
+            df = pd.read_csv(f)
+            if df.empty:
+                raise ValueError("merged.csv is empty.")
+            # Normalize columns for matching, if present
+            cols_lower = {c.lower(): c for c in df.columns}
+            self._merged_has_file_col = "file" in cols_lower
+            self._merged_file_col = cols_lower.get("file", None)
+            if self._merged_has_file_col:
+                # create a canonical key column
+                df["_key"] = df[self._merged_file_col].astype(str).apply(_canonical_clip_key)
+            else:
+                df["_key"] = None
+            self.merged_df = df
+            self.merged_source.set(f"features: {Path(f).name} ({len(df)} rows)")
+            self.update_merged_panel()
         except Exception as e:
-            self.angle_source.set(f"angles: failed to load ({e})")
+            self.merged_df = None
+            self.merged_source.set(f"features: failed to load ({e})")
+            self.update_merged_panel()
 
     # -------- drawing --------
     def redraw(self):
@@ -566,6 +601,68 @@ class MP33Viewer:
 
         self.angles_text.configure(state="disabled")
 
+    # -------- features/labels (merged) panel --------
+    def _current_clip_key(self) -> str | None:
+        if not self.files:
+            return None
+        return _canonical_clip_key(self.files[self.i].stem)
+
+    def _merged_row_for_current_clip(self) -> pd.Series | None:
+        """Prefer name-based match via 'file' column; otherwise fall back to row index."""
+        if self.merged_df is None or self.merged_df.empty:
+            return None
+
+        # try by key match if file column exists
+        if "_key" in self.merged_df.columns and self.merged_df["_key"].notna().any():
+            key = self._current_clip_key()
+            if key is not None:
+                sub = self.merged_df[self.merged_df["_key"] == key]
+                if not sub.empty:
+                    return sub.iloc[0]
+
+        # fallback: row index matching
+        idx = min(self.i, len(self.merged_df) - 1)
+        if idx < 0:
+            return None
+        return self.merged_df.iloc[idx]
+
+    def update_merged_panel(self):
+        self.merged_text.configure(state="normal")
+        self.merged_text.delete("1.0", "end")
+
+        if self.merged_df is None:
+            self.merged_text.insert("1.0", "(no merged.csv loaded)")
+            self.merged_text.configure(state="disabled")
+            return
+
+        row = self._merged_row_for_current_clip()
+        if row is None:
+            self.merged_text.insert("1.0", "(no matching row for this clip)")
+            self.merged_text.configure(state="disabled")
+            return
+
+        # Show a compact header with clip name and row index
+        header = []
+        if self.files:
+            header.append(f"clip: {self.files[self.i].name}")
+        # Try to find a logical display index
+        idx_guess = self.i if self.i < len(self.merged_df) else (self.merged_df.index.get_loc(row.name) if row.name in self.merged_df.index else None)
+        if isinstance(idx_guess, int):
+            header.append(f"row: {idx_guess+1}/{len(self.merged_df)}")
+        key = row.get("_key", None)
+        if isinstance(key, str) and key:
+            header.append(f"key: {key}")
+        self.merged_text.insert("end", "[ " + " | ".join(header) + " ]\n\n")
+
+        # Print all fields except the helper column
+        for col in self.merged_df.columns:
+            if col == "_key":
+                continue
+            val = row[col]
+            self.merged_text.insert("end", f"{col}: {val}\n")
+
+        self.merged_text.configure(state="disabled")
+
     # -------- view / zoom --------
     def zoom(self, factor):
         self.zoom_scale *= factor
@@ -611,12 +708,14 @@ class MP33Viewer:
         self.playing = False
         self.i = (self.i + 1) % len(self.files)
         self.open_file(self.files[self.i])
+        self.update_merged_panel()
 
     def prev_file(self):
         if not self.files: return
         self.playing = False
         self.i = (self.i - 1) % len(self.files)
         self.open_file(self.files[self.i])
+        self.update_merged_panel()
 
     def on_close(self):
         self.root.quit()
