@@ -1,6 +1,6 @@
-model_type: "time_series"   # summary_stats or time_series
-feature_version: "v1.0_baseline
-description: "All Time series joint data 10 frames before and after release frame."
+model_type: "summary_stats"   # summary_stats or time_series
+feature_version: "v1.5_all_angles_all_stats"
+description: "All joint angles and all summary stats"
 
 include_features:
   segments: false
@@ -9,10 +9,8 @@ include_features:
   accelerations: false
 
 selected_columns:
-  angles: "ALL"   
-
-selected_features:
-  derived: "ALL"  
+  angles: "ALL"  
+  summary_stats: "ALL" 
 
 
 # selected_columns:
@@ -29,9 +27,7 @@ selected_features:
 #     - shoulder_flex_l
 #   segments: []
 
-# # New: exact derived features to keep (phase + stat)
-# selected_features:
-#   derived:
+#   stats:
 #     - knee_flex_r_follow_std
 #     - knee_flex_l_windup_mean
 #     - ankle_flex_r_follow_std

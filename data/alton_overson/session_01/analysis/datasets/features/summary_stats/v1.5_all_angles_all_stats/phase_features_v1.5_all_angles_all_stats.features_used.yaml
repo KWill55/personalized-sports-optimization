@@ -1,0 +1,12 @@
+description: All joint angles and all summary stats
+feature_version: v1.5_all_angles_all_stats
+include_features:
+  accelerations: false
+  angles: true
+  segments: false
+  velocities: false
+model_type: summary_stats
+selected_columns:
+  angles: ALL
+  summary_stats: ALL
+snapshot_version: v1.5_all_angles_all_stats

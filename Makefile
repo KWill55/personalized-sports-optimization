@@ -246,6 +246,11 @@ prepare_phase_dataset: ## Merge features and labels for analysis
 	@echo "Merging features.csv and outcomes.csv..."
 	python $(feature_engineering_dir)/prepare_phase_dataset.py
 
+detect_outliers: ## Extract time series features from phases
+	@echo "computing outliers from merged.csvs..."
+	python $(feature_engineering_dir)/detect_outliers.py --roots data --glob "**/merged.csv"
+
+
 # ----------------------------------------
 # Exploratory Analysis 
 # ----------------------------------------
