@@ -1,6 +1,6 @@
-model_type: "summary_stats"   # summary_stats or time_series
+model_type: "summary_stats"
 feature_version: "v1.5_all_angles_all_stats"
-description: "All joint angles and all summary stats"
+description: "DEMO"
 
 include_features:
   segments: false
@@ -8,71 +8,35 @@ include_features:
   velocities: false
   accelerations: false
 
-selected_columns:
-  angles: "ALL"  
-  summary_stats: "ALL" 
+phases:
+  windup: false
+  release: true
+  follow: false
 
+window:
+  pre_seconds: 0.75
+  post_seconds: 0.30
 
-# selected_columns:
-#   angles:
-#     - knee_flex_r
-#     - knee_flex_l
-#     - ankle_flex_r
-#     - ankle_flex_l
-#     - elbow_flex_r
-#     - elbow_flex_l
-#     - hip_flex_r
-#     - hip_flex_l
-#     - shoulder_flex_r
-#     - shoulder_flex_l
-#   segments: []
+padding:
+  mode: "pad"   # "pad" or "drop"
+  pad_value: null   # -> NaN
+  emit_mask: true
 
-#   stats:
-#     - knee_flex_r_follow_std
-#     - knee_flex_l_windup_mean
-#     - ankle_flex_r_follow_std
-#     - knee_flex_r_follow_mean
-#     - elbow_flex_r_windup_mean
-#     - knee_flex_r_follow_range
-#     - elbow_flex_l_follow_total_change
-#     - ankle_flex_r_windup_mean
-#     - knee_flex_r_follow_min
-#     - hip_flex_l_follow_range
-#     - ankle_flex_l_windup_std
-#     - knee_flex_r_windup_mean
-#     - hip_flex_r_follow_std
-#     - ankle_flex_r_windup_max
-#     - ankle_flex_r_windup_min
-#     - hip_flex_l_release_value
-#     - hip_flex_l_windup_min
-#     - ankle_flex_l_windup_total_change
-#     - hip_flex_r_follow_min
-#     - shoulder_flex_l_follow_total_change
-#     - shoulder_flex_l_release_value
-#     - shoulder_flex_r_windup_mean
-#     - elbow_flex_l_follow_range
-#     - knee_flex_l_release_value
-#     - hip_flex_l_follow_max
-#     - ankle_flex_l_windup_mean
-#     - elbow_flex_l_windup_total_change
-#     - hip_flex_l_windup_total_change
-#     - ankle_flex_l_windup_range
-#     - hip_flex_r_follow_range
-#     - elbow_flex_l_follow_min
-#     - hip_flex_r_follow_total_change
-#     - ankle_flex_r_windup_range
-#     - hip_flex_l_follow_std
-#     - elbow_flex_l_windup_mean
-#     - hip_flex_l_windup_range
-#     - shoulder_flex_l_follow_min
-#     - shoulder_flex_l_windup_min
-#     - knee_flex_l_windup_max
-#     - ankle_flex_r_windup_total_change
-#     - ankle_flex_r_follow_range
-#     - shoulder_flex_l_windup_std
-#     - knee_flex_l_windup_std
-#     - shoulder_flex_r_windup_min
-#     - hip_flex_r_windup_total_change
-#     - knee_flex_r_windup_range
-#     - hip_flex_r_windup_mean
-#     - ankle_flex_r_windup_std
+stats:
+  windup:    { min: false, max: false, mean: false, std: false, range: false, total_change: false }
+  release:   { release_value: true }
+  follow:    { min: false, max: false, mean: false, std: false, range: false, total_change: false }
+
+angles:
+  knee_flex_r: { include: true }
+  knee_flex_l: { include: true }
+  ankle_flex_r: { include: true }
+  ankle_flex_l: { include: true }
+  elbow_flex_r: { include: true }
+  elbow_flex_l: { include: true }
+  hip_flex_r: { include: true }
+  hip_flex_l: { include: true }
+  shoulder_flex_r: { include: true }
+  shoulder_flex_l: { include: true }
+  arm_flex_r: { include: true }
+  arm_flex_l: { include: true }

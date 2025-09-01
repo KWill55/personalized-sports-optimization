@@ -44,7 +44,11 @@ FEATURES_DIR = (
         session=project_cfg["session"],
     )))
 
-FEATURES_FILE = FEATURES_DIR / MODEL_TYPE/ FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
+if MODEL_TYPE.lower() == "time_series":
+    FEATURES_FILE = FEATURES_DIR / MODEL_TYPE / FEATURE_VERSION / f"time_series_{FEATURE_VERSION}.csv"
+else:
+    FEATURES_FILE = FEATURES_DIR / MODEL_TYPE / FEATURE_VERSION / f"phase_features_{FEATURE_VERSION}.csv"
+
 VARIANT_DIR = FEATURES_DIR / MODEL_TYPE / FEATURE_VERSION
 VARIANT_DIR.mkdir(parents=True, exist_ok=True)
 
