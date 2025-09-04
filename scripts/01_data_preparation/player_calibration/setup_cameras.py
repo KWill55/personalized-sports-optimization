@@ -1,15 +1,29 @@
 """
-Title: check_cb_detection.py
+Title: setup_cameras.py
 
+Purpose: 
+    - Purpose: provide real-time feedback to help position cameras for optimal 3D data aquisition
+
+Prerequisites:
+    - Ensure that cameras are level (yaw: z axis)
+    - Ensure that cameras are equally spaced apart and are both 45 degrees from athlete (use basic geometry to find angles)
+    - place correct checkerboard size in front of cameras 
+    
 Description:
-    - Purpose: provide real-time feedback for physically tuning two cameras before stereo calibration
-    - Displays detection consistency, focal length difference, principal point difference,
-        and horizontal alignment guides.
-    - Rolling detection success rate with GOOD/LOW status
-    - Focal length difference (fx, fy) and principal point alignment (cx, cy)
-    - Horizontal lines to help align stereo baseline
-    - Color-coded overlays for visual clarity
-    - Lightweight intrinsics computation (feedback only)
+    - Displays all three camera angles, each with their own thread
+    - Displays visual aids to ensure proper camera positioning:
+        - plumb line: central vertical line to ensure midpoint is correct on both stereo cameras (roll: y axis)
+        - horizon grid: three horiztontal lines to ensure proper camera setup (pitch: x axis)
+    - Displays checkerboard detection and rolling detection success rate 
+
+TODO: 
+    - display third camera angle
+    - display plumb line
+    - fix horizontal lines to be 25% 50% 75% for better baseline
+    - paste CB detection from other 
+    - ensure that threading helps make it fast enough 
+    - decide if I want the lightweight intrinsic stats here at all like focal length and principal point
+        - I'm thinking I'll leave intrinsic stats to next script
 
 Usage:
     - Place a checkerboard in view of both cameras
@@ -23,7 +37,6 @@ import threading
 from collections import deque
 from pathlib import Path
 import yaml
-
 
 # ========================================
 # Config
