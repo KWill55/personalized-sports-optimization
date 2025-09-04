@@ -62,9 +62,9 @@ generate_grid: ## Step 0 - print a calibration grid
 	@echo "Generating calibration grid..."
 	python $(calibrate_dir)/generate_grid.py
 
-check_cb_detection: ## Step 1 - Ensure cameras can see CB grid. 
+setup_cameras: ## Step 1 - Ensure cameras can see CB grid. 
 	@echo "Opening camera feeds to ensure cb detection"
-	python $(calibrate_dir)/check_cb_detection.py
+	python $(calibrate_dir)/setup_cameras.py
 
 capture_cb_mono: ## Step 2 - Capture calibration of CB grid.
 	@echo "Capturing images for calibration..."
@@ -128,7 +128,6 @@ helpers1-header: ## 👋 Helpers (Phase 1)
 identify_cameras: ## Camera identification GUI
 	@echo "Opening GUI to identify camera indices..."
 	python $(helpers_dir)/identify_cameras.py
-
 
 # ======================================== 
 # Phase 2: Extract player and ball metrics

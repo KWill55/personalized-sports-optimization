@@ -15,8 +15,8 @@ original_frame_height: 720          # Full camera resolution height
 crop_size: [640, 640]      # Crop size (width, height)
 
 # Camera Indices
-left_cam_index: 1
-right_cam_index: 2
+left_cam_index: 2
+right_cam_index: 0
 third_cam_index: 4
 
 # FPS settings
