@@ -1,5 +1,5 @@
-model_type: "summary_stats"
-feature_version: "v1.5_all_angles_all_stats"
+model_type: "time_series"
+feature_version: "v1.1_before_.1_after_0"
 description: "DEMO"
 
 include_features:
@@ -14,8 +14,8 @@ phases:
   follow: false
 
 window:
-  pre_seconds: 0.75
-  post_seconds: 0.30
+  pre_seconds: 0.1
+  post_seconds: 0.0
 
 padding:
   mode: "pad"   # "pad" or "drop"
