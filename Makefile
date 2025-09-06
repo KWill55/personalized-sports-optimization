@@ -301,9 +301,9 @@ play_avi_videos: ## GUI for interacting with AVI videos in a folder
 	@echo "Opening GUI to interact with AVI videos..."
 	python $(util_dir)/play_avi_videos.py
 
-3d_viewer: ## GUI for viewing 3D data
+project_gui: ## GUI for viewing 3D data
 	@echo "Opening 3D viewer GUI..."
-	python $(util_dir)/mp33_3d_viewer.py
+	python $(util_dir)/project_gui.py
 
 # ======================================== 
 # clean 
