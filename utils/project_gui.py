@@ -39,7 +39,10 @@ session_dir = base_dir / "data" / ATHLETE / SESSION
 
 LAVENDER = "#d6cee6"
 BLUE = "#648AB6"  
+GRAY = "#6D737A" 
+WHITE="#d6cee6"
 BG_COLOR = BLUE
+TRIM_COLOR = GRAY
 
 
 BORDER   = "#555"
@@ -60,19 +63,19 @@ class VideoPlayerWidget(tk.Frame):
       - next_frame() / prev_frame()
       - release()
     """
-    def __init__(self, parent, title="Video", border="#555", lavender="#d6cee6"):
+    def __init__(self, parent, title="Video", border="#555", color=BG_COLOR):
         super().__init__(parent, bg=border)
-        self.border, self.lavender = border, lavender
+        self.border, self.color = border, color
         self.cap = None
         self.playing = False
         self.photo = None
 
         # inner content 
-        inner = tk.Frame(self, bg=self.lavender)
+        inner = tk.Frame(self, bg=self.color)
         inner.pack(fill="both", expand=True, padx=2, pady=2)
 
         tk.Label(inner, text=title, font=("Helvetica", 16, "bold"),
-                 bg=self.lavender, anchor="n", justify="center").pack(fill="x", pady=(6, 2))
+                 bg=self.color, anchor="n", justify="center").pack(fill="x", pady=(6, 2))
 
         # display area (black border look)
         holder = tk.Frame(inner, bg="black", padx=5, pady=5)
@@ -84,7 +87,7 @@ class VideoPlayerWidget(tk.Frame):
 
         # info/status (optional)
         self.info = tk.StringVar(value="No video loaded")
-        tk.Label(inner, textvariable=self.info, bg=self.lavender, font=("Helvetica", 11)).pack(fill="x", pady=(0, 6))
+        tk.Label(inner, textvariable=self.info, bg=self.color, font=("Helvetica", 11)).pack(fill="x", pady=(0, 6))
 
         # redraw state
         self._last_frame_rgb = None
@@ -197,9 +200,9 @@ class Skeleton3DWidget(tk.Frame):
     Minimal 3D skeleton renderer for MediaPipe 33 (embedded Matplotlib).
     Public API: load_from_session(session_dir), next_frame(), prev_frame(), play(), pause(), restart()
     """
-    def __init__(self, parent, border="#555", lavender="#d6cee6", fps=30):
+    def __init__(self, parent, border="#555", color=WHITE, fps=30):
         super().__init__(parent, bg=border)
-        self.border, self.lavender = border, lavender
+        self.border, self.color = border, color
         self.fps = fps
 
         self.points = None   # (T,33,3)
@@ -210,7 +213,7 @@ class Skeleton3DWidget(tk.Frame):
         self._view_initialized = False   
         self._preserve_limits = False
 
-        inner = tk.Frame(self, bg=self.lavender)
+        inner = tk.Frame(self, bg=self.color)
         inner.pack(fill="both", expand=True, padx=2, pady=2)
 
         # Matplotlib figure
@@ -614,10 +617,10 @@ def main():
     meas1.grid(row=1, column=2, sticky="nsew", padx=PAD, pady=PAD//2)
 
     # ----- Mount video players inside those boxes -----
-    video2d_player = VideoPlayerWidget(video2d_box.inner, title="2D video", border=BORDER, lavender=LAVENDER)
+    video2d_player = VideoPlayerWidget(video2d_box.inner, title="2D video", border=BORDER, color=BG_COLOR)
     video2d_player.pack(fill="both", expand=True, padx=4, pady=4)
 
-    ball_player = VideoPlayerWidget(ballvideo_box.inner, title="Ball Tracking Video", border=BORDER, lavender=LAVENDER)
+    ball_player = VideoPlayerWidget(ballvideo_box.inner, title="Ball Tracking Video", border=BORDER, color=TRIM_COLOR)
     ball_player.pack(fill="both", expand=True, padx=4, pady=4)
 
     load_videos_for_current_session(video2d_player, ball_player)
@@ -630,7 +633,7 @@ def main():
     skel3d.grid(row=2, column=0, sticky="nsew", padx=PAD, pady=PAD//2)
 
     # add the 3D skeleton widget into the box and load data
-    skeleton = Skeleton3DWidget(skel3d.inner, border=BORDER, lavender=LAVENDER, fps=FPS or 30)
+    skeleton = Skeleton3DWidget(skel3d.inner, border=BORDER, color=TRIM_COLOR, fps=FPS or 30)
     skeleton.pack(fill="both", expand=True, padx=4, pady=4)
     skeleton.load_from_session(session_dir)
 
