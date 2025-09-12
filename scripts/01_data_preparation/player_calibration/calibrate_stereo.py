@@ -63,17 +63,21 @@ def load_config() -> dict:
 def get_paths(cfg: dict) -> Tuple[Path, Path, Path, Path, Path]:
     """
     Returns:
-        mono_left_dir, mono_right_dir, stereo_combined_dir, output_dir, session_dir
+        calib_mono_left_dir, calib_mono_right_dir, calib_pairs_dir, output_dir, session_dir
     """
     base_dir = Path(__file__).resolve().parents[3]
     session_dir = base_dir / "data" / cfg["athlete"] / cfg["session"]
 
-    # You can rename these if your folders differ
-    mono_left_dir      = session_dir / "calibration" / "left_calib_images"
-    mono_right_dir     = session_dir / "calibration" / "right_calib_images"
-    stereo_combined_dir= session_dir / "calibration" / "calib_images"   # existing combined path
+    mono_left_dir       = session_dir / "calibration" / "calib_images" / "mono_left"
+    mono_right_dir      = session_dir / "calibration" / "calib_images" / "mono_right"
+    stereo_combined_dir = session_dir / "calibration" / "calib_images" / "pairs"
+    output_dir          = session_dir / "calibration" / "stereo_calibration"
 
-    output_dir = session_dir / "calibration" / "stereo_calibration"
+    # mono_left_dir      = cfg["paths"]["calib_mono_left"]
+    # mono_right_dir     = cfg["paths"]["calib_mono_right"]
+    # stereo_combined_dir=  cfg["paths"]["calib_pairs"]  
+    # output_dir = cfg["paths"]["stereo_calibration"]
+
     output_dir.mkdir(parents=True, exist_ok=True)
     return mono_left_dir, mono_right_dir, stereo_combined_dir, output_dir, session_dir
 
@@ -124,10 +128,12 @@ def collect_mono_detections(calib_dir: Path, pattern_size: Tuple[int, int]) -> T
     """
     print(f"[DEBUG] Mono detection dir: {calib_dir}")
     files = sorted(glob.glob(str(calib_dir / "*.png"))) + sorted(glob.glob(str(calib_dir / "*.jpg")))
-    print(f"[INFO] Found {len(files)} mono images at {calib_dir}")
+    print(f"\n[INFO] Found {len(files)} mono images at {calib_dir}\n")
 
     imgpoints: List[np.ndarray] = []
     image_size: Tuple[int, int] | None = None
+
+    # max 30 iterations
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 1e-3)
 
     for fp in files:
@@ -151,7 +157,7 @@ def collect_mono_detections(calib_dir: Path, pattern_size: Tuple[int, int]) -> T
     if image_size is None or len(imgpoints) == 0:
         raise RuntimeError(f"[ERROR] No valid detections in {calib_dir}")
 
-    print(f"[INFO] Using {len(imgpoints)} images from {calib_dir} for mono calibration")
+    print(f"\n[INFO] Using {len(imgpoints)} images from {calib_dir} for mono calibration\n")
     return imgpoints, image_size
 
 
@@ -170,7 +176,7 @@ def collect_stereo_detections_combined(
     """
     print(f"[DEBUG] Looking for images in: {calib_images_dir}")
     combined_images = sorted(glob.glob(str(calib_images_dir / "pair_*.png")))
-    print(f"[INFO] Found {len(combined_images)} combined images.")
+    print(f"\n[INFO] Found {len(combined_images)} combined images.\n")
     if len(combined_images) < 10:
         print("[WARNING] Fewer than 10 image pairs may reduce calibration accuracy.")
 
@@ -216,7 +222,7 @@ def collect_stereo_detections_combined(
     if image_size is None or len(imgpointsL) == 0:
         raise RuntimeError("[ERROR] No valid checkerboard detections found in stereo folder.")
 
-    print(f"[INFO] Using {len(imgpointsL)} valid stereo pairs for extrinsics.")
+    print(f"\n[INFO] Using {len(imgpointsL)} valid stereo pairs for extrinsics.\n")
     return imgpointsL, imgpointsR, image_size
 
 
@@ -246,25 +252,26 @@ def calibrate_extrinsics(
     objpoints: List[np.ndarray],
     imgpointsL: List[np.ndarray],
     imgpointsR: List[np.ndarray],
-    intr_L: Intrinsics,
-    intr_R: Intrinsics,
+    intrinsics_L: Intrinsics,
+    intrinsics_R: Intrinsics,
     image_size: Tuple[int, int],
 ) -> Extrinsics:
     
-    flags = cv.CALIB_FIX_INTRINSIC  # uses the intrinsics we just computed
+    flags = cv.CALIB_FIX_INTRINSIC  # keep our intrinsic values
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 100, 1e-5)
 
     retval, _, _, _, _, R, T, E, F = cv.stereoCalibrate(
         objpoints, imgpointsL, imgpointsR,
-        intr_L.K, intr_L.dist, intr_R.K, intr_R.dist,
+        intrinsics_L.K, intrinsics_L.dist, intrinsics_R.K, intrinsics_R.dist,
         image_size,
         criteria=criteria,
         flags=flags
     )
 
     # Projection matrices: P1 = K1 [I|0], P2 = K2 [R|T]
-    P1 = intr_L.K @ np.hstack((np.eye(3), np.zeros((3, 1))))
-    P2 = intr_R.K @ np.hstack((R, T))
+    # Projection matrices define how 3D points map into each camera’s 2D image.
+    P1 = intrinsics_L.K @ np.hstack((np.eye(3), np.zeros((3, 1))))
+    P2 = intrinsics_R.K @ np.hstack((R, T))
 
     return Extrinsics(R=R, T=T, E=E, F=F, P1=P1, P2=P2, rms=float(retval))
 
