@@ -9,6 +9,13 @@ import csv
 import math
 import os
 
+from __future__ import annotations
+import cv2
+import numpy as np
+import math
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
 # =========================
 # Config loaders (project + session)
 # =========================
@@ -107,64 +114,20 @@ def is_make(trajectory, upper_box, lower_box):
                 return False
     return False
 
+@dataclass
+class Candidate:
+    cnt: np.ndarray # contour points
+    center: Tuple[float,float]
+    radius: float
+    area: float
+    perimeter: float
+    circularity: float # 4πA / P^2
+    fill: float # A / (πr^2)
+
 # =========================
 # Detection (with “prev_center” smoothing)
 # =========================
-class BallDetector:
-    def __init__(self, hsv_lo, hsv_hi, area_min, area_max, circ_min, fill_min):
-        self.hsv_lo = hsv_lo
-        self.hsv_hi = hsv_hi
-        self.area_min = area_min
-        self.area_max = area_max
-        self.circ_min = circ_min
-        self.fill_min = fill_min
-        self.prev_center = None
-
-    def detect(self, frame):
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, self.hsv_lo, self.hsv_hi)
-        mask = cv2.erode(mask, None, iterations=1)
-        mask = cv2.dilate(mask, None, iterations=2)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        best_score = -1
-        best = None
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if not (self.area_min < area < self.area_max):
-                continue
-            per = cv2.arcLength(cnt, True)
-            if per <= 0:
-                continue
-            circ = 4 * math.pi * area / (per * per)
-            (x, y), radius = cv2.minEnclosingCircle(cnt)
-            if radius <= 0:
-                continue
-            fill = area / (math.pi * radius * radius)
-            if circ < self.circ_min or fill < self.fill_min:
-                continue
-            if self.prev_center is not None:
-                dx = abs(x - self.prev_center[0])
-                dy = abs(y - self.prev_center[1])
-                if dx < 2 and dy < 2:
-                    continue
-            score = circ * fill
-            if score > best_score:
-                best_score = score
-                best = (int(x), int(y))
-
-        if best is not None:
-            self.prev_center = best
-        return best, mask
-
-    def update_params(self, hsv_lo, hsv_hi, area_min, area_max, circ_min, fill_min):
-        self.hsv_lo = hsv_lo
-        self.hsv_hi = hsv_hi
-        self.area_min = area_min
-        self.area_max = area_max
-        self.circ_min = circ_min
-        self.fill_min = fill_min
-        self.prev_center = None
+        
 
 # =========================
 # GUI App
@@ -538,6 +501,15 @@ class FreeThrowReviewerApp:
         if self.cap:
             self.cap.release()
         self.root.quit()
+
+
+def draw_detection(frame: np.ndarray, center: Optional[Tuple[int,int]], radius: Optional[int]) -> np.ndarray:
+    """Utility to draw a circle and center on the frame for visualization."""
+    out = frame.copy()
+    if center is not None and radius is not None:
+        cv2.circle(out, center, max(radius, 2), (0, 255, 0), 2)
+        cv2.circle(out, center, 2, (0, 0, 255), -1)
+    return out
 
 # =========================
 # Main
