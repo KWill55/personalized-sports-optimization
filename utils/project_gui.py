@@ -713,32 +713,52 @@ def load_mp33_csv_compact(path: Path) -> np.ndarray:
 
 class Skeleton3DWidget(tk.Frame):
     """3D skeleton viewer for MediaPipe-33 keypoints (embedded Matplotlib)."""
-    def __init__(self, parent, *, bg_border="#555", bg_panel=TRIM_COLOR, fps=30,
-                 point_size=30, line_width=3, use_global_limits=True):
+    TORSO_NAMES = ["left_shoulder", "right_shoulder", "left_hip", "right_hip"]
+    TORSO_IDS = [MP33_IDX[n] for n in TORSO_NAMES]
+
+    def __init__(self, parent, *, bg_border="#555", bg_panel=TRIM_COLOR, fps=FPS,
+                point_size=60, line_width=7, use_global_limits=False, fixed_R=None,
+                init_view=(90, 90),   # (elev, azim): up/down tilt, rotation around Z axis
+                zoom_factor=0.42,      #  smaller values = more zoomed in
+                bias_axis = "y",
+                height_bias=0.62, # fraction of R to shift upward 
+                roll_deg=-180, 
+                roll_axis='y'
+                ): 
         super().__init__(parent, bg=bg_border)
+        # Config
         self.fps = fps
         self.point_size = point_size
         self.line_width = line_width
         self.use_global_limits = use_global_limits
+        self.fixed_R = fixed_R          # if not None, overrides all R calc
+        self.init_view = init_view      # (elev, azim)
+        self.zoom_factor = zoom_factor  # used when computing R from span
+        self.roll_deg = float(roll_deg)
+        self.roll_axis = roll_axis
+        self.bias_axis = bias_axis
+        self.height_bias = float(height_bias)
 
+        # State
         self.points = None
         self.T = 0
         self.t = 0
         self.playing = False
         self.global_R = None
+        self._has_set_initial_view = False
 
+        # Panel + status
         panel = tk.Frame(self, bg=bg_panel)
         panel.pack(fill="both", expand=True, padx=2, pady=2)
 
-        # Under-canvas status line (like the videos)
         self.info_var = tk.StringVar(value="No skeleton loaded")
         tk.Label(panel, textvariable=self.info_var, bg=bg_panel, font=("Helvetica", 11)).pack(
             fill="x", pady=(0, 0)
         )
 
+        # Figure / Axes
         self.fig = Figure(figsize=(3, 3), dpi=100)
         self.ax = self.fig.add_subplot(111, projection="3d")
-        self.ax.set_axis_off()
         self.fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         self.ax.set_position([0, 0, 1, 1])
         self.ax.set_box_aspect((1, 1, 1))
@@ -748,8 +768,7 @@ class Skeleton3DWidget(tk.Frame):
         self.canvas_widget.pack(fill="both", expand=True, padx=8, pady=8)
         self.canvas_widget.bind("<Configure>", lambda _e: self._draw())
 
-        self._has_set_initial_view = False
-
+    # --------- Data loading ---------
     def load_from_session(self, session_dir: Path):
         key_dir = session_dir / "metrics" / "3d_keypoints"
         csv = next((p for p in sorted(key_dir.glob("*.csv"))), None)
@@ -760,47 +779,39 @@ class Skeleton3DWidget(tk.Frame):
 
     def load_file(self, path: Path):
         try:
-            P = load_mp33_csv_compact(path)
+            P = load_mp33_csv_compact(path).astype(np.float32)
         except Exception as e:
             self._draw_text(f"Failed to load:\n{Path(path).name}\n{e}")
-            # also show status
-            if hasattr(self, "info_var"):
-                self.info_var.set(f"Failed to load: {Path(path).name}")
+            self.info_var.set(f"Failed to load: {Path(path).name}")
             return
 
-        self.points = P.astype(np.float32)
+        # Reset state
+        self.points = P
         self.T = int(P.shape[0])
         self.t = 0
+        self._has_set_initial_view = False
 
-        if self.use_global_limits:
-            torso_ids = [
-                MP33_IDX["left_shoulder"], MP33_IDX["right_shoulder"],
-                MP33_IDX["left_hip"], MP33_IDX["right_hip"]
-            ]
-            centroids = self.points[:, torso_ids, :].mean(axis=1)
+        # Pre-compute a global R if requested (based on torso-centered cloud across all frames)
+        if self.use_global_limits and self.points is not None and self.points.size > 0:
+            centroids = self.points[:, self.TORSO_IDS, :].mean(axis=1)
             Pc_all = self.points - centroids[:, None, :]
-            span = np.max(np.ptp(Pc_all, axis=1))
-            self.global_R = float(max(span, 1e-6) * 0.55)
+            span_all = np.max(np.ptp(Pc_all, axis=1))  # max across frames of overall extent
+            self.global_R = float(max(span_all, 1e-6) * self.zoom_factor)
         else:
             self.global_R = None
 
+        self.info_var.set(f"{Path(path).name} — {self.T} frames")
         self._draw()
 
-        if hasattr(self, "info_var"):
-            self.info_var.set(f"{Path(path).name} — {self.T} frames")
-
-
-
+    # --------- Playback controls ---------
     def restart(self):
-        if self.points is None:
-            return
+        if self.points is None: return
         self.playing = False
         self.t = 0
         self._draw()
 
     def play(self):
-        if self.points is None or self.playing:
-            return
+        if self.points is None or self.playing: return
         self.playing = True
         self._loop()
 
@@ -808,22 +819,19 @@ class Skeleton3DWidget(tk.Frame):
         self.playing = False
 
     def next_frame(self):
-        if self.points is None:
-            return
+        if self.points is None: return
         self.playing = False
         self.t = min(self.T - 1, self.t + 1)
         self._draw()
 
     def prev_frame(self):
-        if self.points is None:
-            return
+        if self.points is None: return
         self.playing = False
         self.t = max(0, self.t - 1)
         self._draw()
 
     def _loop(self):
-        if not self.playing:
-            return
+        if not self.playing: return
         self.t += 1
         if self.t >= self.T:
             self.t = self.T - 1
@@ -831,41 +839,79 @@ class Skeleton3DWidget(tk.Frame):
         self._draw()
         self.after(max(1, int(1000 / max(self.fps, 1))), self._loop)
 
-    def _draw(self):
+    # --------- Draw helpers ---------
+    def _compute_R(self, Pc_frame: np.ndarray) -> float:
+        """Choose display radius R based on priority: fixed_R > global_R > per-frame span."""
+        if self.fixed_R is not None:
+            return float(self.fixed_R)
+        if self.global_R is not None:
+            return float(self.global_R)
+        span = float(max(np.ptp(Pc_frame, axis=0).max(), 1e-6))
+        return span * self.zoom_factor
+
+    def _clear_axes(self):
         self.ax.cla()
         self.ax.set_axis_off()
+        self.ax.set_box_aspect((1, 1, 1))
 
+    @staticmethod
+    def _rotate_about_axis(points, angle_deg, axis='z'):
+        """Rotate Nx3 points by angle around an axis (x, y, or z)."""
+        a = np.deg2rad(angle_deg)
+        ca, sa = np.cos(a), np.sin(a)
+        if axis == 'x':
+            R = np.array([[1, 0, 0],
+                        [0, ca, -sa],
+                        [0, sa,  ca]], dtype=float)
+        elif axis == 'y':
+            R = np.array([[ ca, 0, sa],
+                        [  0, 1,  0],
+                        [-sa, 0, ca]], dtype=float)
+        else:  # 'z'
+            R = np.array([[ca, -sa, 0],
+                        [sa,  ca, 0],
+                        [ 0,   0, 1]], dtype=float)
+        return points @ R.T
+
+    def _draw(self):
+        self._clear_axes()
         if self.points is None:
             self._draw_text("No data loaded")
             return
 
+        # center on torso
         P = self.points[self.t]
-        torso_ids = [
-            MP33_IDX["left_shoulder"], MP33_IDX["right_shoulder"],
-            MP33_IDX["left_hip"], MP33_IDX["right_hip"]
-        ]
-        c = P[torso_ids].mean(axis=0)
-        Pc = P - c
+        c = P[self.TORSO_IDS].mean(axis=0)
+        Pc = P - c  # centered
+        if self.roll_deg:
+            Pc = self._rotate_about_axis(Pc, self.roll_deg, axis=self.roll_axis)
 
+        # draw points & bones
         self.ax.scatter(Pc[:, 0], Pc[:, 1], Pc[:, 2], s=self.point_size, c="k")
         for a, b in MP33_EDGES:
-            xa, ya, za = Pc[a]
-            xb, yb, zb = Pc[b]
+            xa, ya, za = Pc[a]; xb, yb, zb = Pc[b]
             self.ax.plot([xa, xb], [ya, yb], [za, zb], linewidth=self.line_width, color="tab:blue")
 
-        if self.global_R is not None:
-            R = self.global_R
-        else:
-            span = float(max(np.ptp(Pc, axis=0).max(), 1e-6))
-            R = span * 0.55
+        # limits with upward bias
+        R = self._compute_R(Pc)
+        b = self.height_bias * R
 
-        self.ax.set_xlim(-R, R)
-        self.ax.set_ylim(-R, R)
-        self.ax.set_zlim(-R, R)
-        self.ax.set_box_aspect((1, 1, 1))
+        if self.bias_axis == "x":
+            self.ax.set_xlim(-R + b, R + b)
+            self.ax.set_ylim(-R, R)
+            self.ax.set_zlim(-R, R)
+        elif self.bias_axis == "y":
+            self.ax.set_xlim(-R, R)
+            self.ax.set_ylim(-R + b, R + b)
+            self.ax.set_zlim(-R, R)
+        else:  # "z" (default)
+            self.ax.set_xlim(-R, R)
+            self.ax.set_ylim(-R, R)
+            self.ax.set_zlim(-R + b, R + b)
 
         if not self._has_set_initial_view:
-            self.ax.view_init(elev=20, azim=-70)
+            elev, azim = self.init_view
+            self.ax.view_init(elev=elev, azim=azim)
             self._has_set_initial_view = True
 
         self.ax.set_xticks([]); self.ax.set_yticks([]); self.ax.set_zticks([])
@@ -873,10 +919,11 @@ class Skeleton3DWidget(tk.Frame):
         self.canvas.draw_idle()
 
     def _draw_text(self, text: str):
-        self.ax.cla(); self.ax.set_axis_off()
+        self._clear_axes()
         self.ax.text2D(0.5, 0.5, text, transform=self.ax.transAxes,
                        ha="center", va="center", fontsize=11)
         self.canvas.draw_idle()
+
 
 
 # =========================
@@ -973,8 +1020,21 @@ def main():
     root = tk.Tk()
     root.title("Personalized Sports Optimization")
 
+    def on_angles_changed(selected: set[str]):
+        # push the selection to both plots
+        angles_plot.set_visible_angles(selected if selected else set())
+        release_plot.set_visible_angles(selected if selected else set())
+
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
     root.geometry(f"{int(sw*0.9)}x{int(sh*0.9)}")
+
+    # --- Build clip->video maps for syncing with selected clip ---
+    two_d_dir = session_dir / "videos" / "player_tracking" / "2d"
+    ball_dir  = session_dir / "videos" / "ball_tracking" / "raw"
+    two_d_map = list_videos_with_clips(two_d_dir)   # dict[int, Path]
+    ball_map  = list_videos_with_clips(ball_dir)    # dict[int, Path]
+    keypoints_dir = session_dir / "metrics" / "3d_keypoints"
+    kp_map = list_keypoints_with_clips(keypoints_dir)
 
     factory = SetupGui()
 
@@ -988,18 +1048,31 @@ def main():
     for r in range(4):
         root.rowconfigure(r, weight=ROW_WEIGHTS[r], minsize=ROW_MINSIZE[r])
 
+    # --- create tkinter boxes to display widgets in ---
+    
+    #title
     title = factory.framed_box(root, "Personalized Sports Optimization", font_size=TITLE_FONT_SIZE)
     title.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=PAD, pady=(PAD, PAD//2))
-
-    # Row 1: video / ball video / skeleton
+    #row 1
     video2d_box = factory.framed_box(root, "2D video (1280x640)", font_size=14)
     video2d_box.grid(row=1, column=0, sticky="nsew", padx=PAD, pady=PAD//2)
-
     ballvideo_box = factory.framed_box(root, "Ball Tracking Video (1280x720)", font_size=14)
     ballvideo_box.grid(row=1, column=1, sticky="nsew", padx=PAD, pady=PAD//2)
-
     skel3d_box = factory.framed_box(root, "3D skeleton", font_size=14)
     skel3d_box.grid(row=1, column=2, sticky="nsew", padx=PAD, pady=PAD//2)
+    #row 2
+    graph1 = factory.framed_box(root, "Angles over Frames per Free Throw", font_size=14)
+    graph1.grid(row=2, column=0, sticky="nsew", padx=PAD, pady=PAD//2)
+    graph2 = factory.framed_box(root, "Average Release Angles per Free Throw", font_size=14)
+    graph2.grid(row=2, column=1, sticky="nsew", padx=PAD, pady=PAD//2)
+    meas_box, meas_text = factory.measurement_box(root, "Summary stats")
+    meas_box.grid(row=2, column=2, sticky="nsew", padx=PAD, pady=PAD//2)
+    #row 3
+    filters_box = factory.framed_box(root, "Angle Filters", font_size=14)
+    filters_box.grid(row=3, column=1, sticky="nsew", padx=PAD, pady=(PAD//2, PAD))
+    select = factory.selection_box(root)
+    select.grid(row=3, column=2, sticky="nsew", padx=PAD, pady=(PAD//2, PAD))
+    # navigation is farther below 
 
     # Mount video players
     video2d_player = VideoPlayerWidget(video2d_box.inner, border=BORDER, color=TRIM_COLOR)
@@ -1007,72 +1080,36 @@ def main():
     ball_player = VideoPlayerWidget(ballvideo_box.inner, border=BORDER, color=TRIM_COLOR)
     ball_player.pack(fill="both", expand=True, padx=1, pady=1)
 
-    # 3D skeleton
+    # Mount 3D skeleton
     skeleton = Skeleton3DWidget(skel3d_box.inner, bg_border=BORDER, bg_panel=TRIM_COLOR, fps=FPS or 30)
     skeleton.pack(fill="both", expand=True, padx=4, pady=4)
     skeleton.load_from_session(session_dir)
 
-    # Row 2: graphs + measurement box
-    info = factory.framed_box(root, "Angles over Frames per Free Throw", font_size=14)
-    info.grid(row=2, column=0, sticky="nsew", padx=PAD, pady=PAD//2)
-
-    graph1 = factory.framed_box(root, "Average Release Angles per Free Throw", font_size=14)
-    graph1.grid(row=2, column=1, sticky="nsew", padx=PAD, pady=PAD//2)
-
-    meas_box, meas_text = factory.measurement_box(root, "Summary stats")
-    meas_box.grid(row=2, column=2, sticky="nsew", padx=PAD, pady=PAD//2)
-
-    # Load summary stats once
+    # Load summary stats 
     summary_df = load_summary_stats(session_dir)
 
-
-    # --- Graph 1 content: fast Matplotlib widget synced to clips ---
+    # get session info 
     session_clip_files = sorted(angles_long_df.loc[angles_long_df["session"] == SESSION, "file"].unique())
     current_clip_idx = tk.IntVar(value=0)
+    session_angles = sorted(map(str, angles_long_df.loc[angles_long_df["session"] == SESSION, "angle"].unique()))
 
-    angles_plot = AnglesPlotWidget(info.inner, angles_long_df, SESSION, bg=info.inner.cget("bg"))
+    # Plot angles over frames per free throw
+    angles_plot = AnglesPlotWidget(graph1.inner, angles_long_df, SESSION, bg=graph1.inner.cget("bg"))
     angles_plot.pack(fill="both", expand=True, padx=6, pady=6)
 
-    # --- Graph 2: release angles per throw ---
+    # Plot average release angles per throw 
     release_plot = ReleaseAnglesWidget(
-        graph1.inner,
+        graph2.inner,
         release_rows=release_rows,
         session_id=SESSION,
         bg=graph1.inner.cget("bg")
     )
     release_plot.pack(fill="both", expand=True, padx=6, pady=6)
 
-     # Middle: Angle Filters
-    filters_box = factory.framed_box(root, "Angle Filters", font_size=14)
-    filters_box.grid(row=3, column=1, sticky="nsew", padx=PAD, pady=(PAD//2, PAD))
-
-    # Right: selection box 
-    select = factory.selection_box(root)
-    select.grid(row=3, column=2, sticky="nsew", padx=PAD, pady=(PAD//2, PAD))
-
-    # Unique angles present in this SESSION (sorted strings)
-    session_angles = sorted(map(str, angles_long_df.loc[angles_long_df["session"] == SESSION, "angle"].unique()))
-
-    def on_angles_changed(selected: set[str]):
-        # push the selection to both plots
-        angles_plot.set_visible_angles(selected if selected else set())
-        release_plot.set_visible_angles(selected if selected else set())
-
     # Mount the panel into the box
     angle_panel = AngleFilterPanel(filters_box.inner, session_angles, on_change=on_angles_changed)
     angle_panel.pack(fill="both", expand=True, padx=6, pady=6)
-
-    # initialize both plots to "all"
     on_angles_changed(set(session_angles))
-
-
-    # --- Build clip->video maps for syncing with selected clip ---
-    two_d_dir = session_dir / "videos" / "player_tracking" / "2d"
-    ball_dir  = session_dir / "videos" / "ball_tracking" / "raw"
-    two_d_map = list_videos_with_clips(two_d_dir)   # dict[int, Path]
-    ball_map  = list_videos_with_clips(ball_dir)    # dict[int, Path]
-    keypoints_dir = session_dir / "metrics" / "3d_keypoints"
-    kp_map = list_keypoints_with_clips(keypoints_dir)
 
     def render_summary_for_clip(clip_id: int | None):
         meas_text.configure(state="normal")
@@ -1227,7 +1264,7 @@ def main():
         tk.Button(btns, text="Restart Clip",  font=btn_font_big, command=on_restart_clip).grid(row=1, column=1, padx=6, pady=6, sticky="nsew")
         tk.Button(btns, text="Next Clip",     font=btn_font_big, command=on_next_clip).grid(row=1, column=2, padx=6, pady=6, sticky="nsew")
 
-        btn_font = ("Helvetica", 15, "bold")
+        btn_font = ("Helvetica", 18, "bold")
         tk.Button(btns, text="Previous Frame", font=btn_font, command=on_prev_frame).grid(row=2, column=0, padx=6, pady=6, sticky="nsew")
         tk.Button(btns, text="Pause/Play",     font=btn_font, command=on_playpause).grid(row=2, column=1, padx=6, pady=6, sticky="nsew")
         tk.Button(btns, text="Next Frame",     font=btn_font, command=on_next_frame).grid(row=2, column=2, padx=6, pady=6, sticky="nsew")
