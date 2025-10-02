@@ -49,7 +49,8 @@ PLAYER_TRACKING_FPS = cfg["player_tracking_fps"]
 
 # Calibration Parameters
 CHECKERBOARD = tuple(cfg["inner_corners"])  # (columns, rows)
-MIN_SQUARE_PX = float(cfg.get("min_square_px", 40.0))  # default 40px
+# MIN_SQUARE_PX = float(cfg.get("min_square_px", 40.0))  # default 40px
+MIN_SQUARE_PX = 5
 
 # ========================================
 # Paths and Directories

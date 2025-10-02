@@ -170,13 +170,13 @@ class StereoTuningGUI:
         """
         
         # draw horizontal lines
-        for frac in (0.25, 0.5, 0.75):
+        for frac in (0, 1/6, 2/6, 3/6, 4/6, 5/6, 6/6):
             y = y0 + int(h * frac)
-            cv.line(img, (x0, y), (x0 + w - 1, y), HORIZ_COLOR, 2)
+            cv.line(img, (x0, y), (x0 + w - 1, y), HORIZ_COLOR, 3)
 
         # draw vertical center line
         x_mid = x0 + w // 2
-        cv.line(img, (x_mid, y0), (x_mid, y0 + h - 1), PLUMB_COLOR, 2)
+        cv.line(img, (x_mid, y0), (x_mid, y0 + h - 1), PLUMB_COLOR, 3)
 
     def compose_canvas(self, viewL, viewR, viewB):
         """Top row: stereo; Bottom row: Ball (raw)."""

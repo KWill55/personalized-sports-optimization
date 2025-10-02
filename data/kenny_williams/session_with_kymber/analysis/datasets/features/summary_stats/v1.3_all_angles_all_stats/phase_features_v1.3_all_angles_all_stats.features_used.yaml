@@ -1,0 +1,62 @@
+angles:
+  ankle_flex_l:
+    include: true
+  ankle_flex_r:
+    include: true
+  arm_flex_l:
+    include: true
+  arm_flex_r:
+    include: true
+  elbow_flex_l:
+    include: true
+  elbow_flex_r:
+    include: true
+  hip_flex_l:
+    include: true
+  hip_flex_r:
+    include: true
+  knee_flex_l:
+    include: true
+  knee_flex_r:
+    include: true
+  shoulder_flex_l:
+    include: true
+  shoulder_flex_r:
+    include: true
+description: regular
+feature_version: v1.3_all_angles_all_stats
+include_features:
+  accelerations: false
+  angles: true
+  segments: false
+  velocities: false
+model_type: summary_stats
+padding:
+  emit_mask: true
+  mode: pad
+  pad_value: null
+phases:
+  follow: false
+  release: true
+  windup: true
+snapshot_version: v1.3_all_angles_all_stats
+stats:
+  follow:
+    max: false
+    mean: false
+    min: false
+    range: false
+    std: false
+    total_change: false
+  release:
+    release_value: true
+  windup:
+    max: false
+    mean: false
+    min: false
+    range: false
+    std: false
+    total_change: false
+window:
+  post_seconds: 0.0
+  pre_seconds: 0.1

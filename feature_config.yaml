@@ -1,6 +1,6 @@
-model_type: "time_series"
-feature_version: "v1.1_before_.1_after_0"
-description: "DEMO"
+model_type: "summary_stats"
+feature_version: "v1.4_all_angles_all_stats"
+description: "regular"
 
 include_features:
   segments: false
@@ -9,7 +9,7 @@ include_features:
   accelerations: false
 
 phases:
-  windup: false
+  windup: true
   release: true
   follow: false
 

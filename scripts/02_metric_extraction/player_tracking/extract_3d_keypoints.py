@@ -4,6 +4,9 @@ import cv2
 from pathlib import Path
 import yaml
 
+#TODO add kalman filter and smoothing 
+# add way to see blocked or missing joints better 
+
 # ========================================
 # Config
 # ========================================
@@ -20,8 +23,8 @@ SESSION = cfg["session"]
 base_dir   = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 
-calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib_manual.npz"
-kps_dir    = session_dir / "metrics" / "2d_keypoints"        # <— single folder
+calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib.npz"
+kps_dir    = session_dir / "metrics" / "2d_keypoints"       
 out_dir    = session_dir / "metrics" / "3d_keypoints"
 out_dir.mkdir(parents=True, exist_ok=True)
 

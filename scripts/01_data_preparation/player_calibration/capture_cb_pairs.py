@@ -55,12 +55,13 @@ PLAYER_TRACKING_FPS = project_cfg["player_tracking_fps"]
 # Calibration Parameters
 CHECKERBOARD = tuple(project_cfg["inner_corners"])  # (columns, rows)
 # MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
-MIN_SQUARE_PX = 4 # yes I know this is way too small. 
+MIN_SQUARE_PX = 5 # yes I know this is way too small. 
 
 # ========================================
 # Paths and Directories
 # ========================================
-calib_dir = project_cfg["calib_pairs"]
+# calib_dir = project_cfg["paths"]["calib_pairs"]
+calib_dir = Path(f"data/{ATHLETE}/{SESSION}/calibration/calib_images/pairs")
 calib_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================

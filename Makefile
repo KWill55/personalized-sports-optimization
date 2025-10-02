@@ -74,6 +74,10 @@ capture_cb_pairs: ## Step 2 - Capture calibration pairs of CB grid.
 	@echo "Capturing image pairs for calibration..."
 	python $(calibrate_dir)/capture_cb_pairs.py
 
+capture_calib_images: ## Step 2 - Capture calibration pairs of CB grid.
+	@echo "Capturing images for calibration..."
+	python $(calibrate_dir)/capture_calib_images.py
+
 calibrate_stereo: ## Step 3 - Stereo Calibration (int/ext)
 	@echo "Calibrating stereo cameras..."
 	python $(calibrate_dir)/calibrate_stereo.py
@@ -305,6 +309,9 @@ project_gui: ## GUI for viewing 3D data
 	@echo "Opening 3D viewer GUI..."
 	python $(util_dir)/project_gui.py
 
+real_time_display: ## GUI for displaying live joint angles
+	@echo "Opening real time display GUI..."
+	python $(util_dir)/real_time_display.py
 # ======================================== 
 # clean 
 # ========================================

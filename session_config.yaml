@@ -64,8 +64,8 @@ athletes:
     session_04:
       #values from create_hoop_regions.py
       hoop_regions:
-        upper: [[811, 194], [875, 254]]
-        lower: [[811, 254], [875, 334]]
+        upper: [[686, 220], [732, 280]]
+        lower: [[686, 280], [732, 360]]
       
       #values from tune_ball_detection.py
       hsv_ranges:
@@ -79,4 +79,23 @@ athletes:
       min_motion: 5
       erode_iters: 4
       dilate_iters: 6
+      blur_ksize: 1
+
+  kenny_williams:
+    
+    session_with_kymber:
+      hoop_regions: # Get these from create_hoop_regions.py
+        upper: [[634, 212], [685, 272]]
+        lower: [[634, 272], [685, 352]]
+      hsv_ranges:     
+        lower: [0, 75, 50]
+        upper: [12, 230, 200]
+      
+      ball_area_px: {min: 400, max: 4000}
+      circularity_min: .7
+      fill_ratio_min: .65
+
+      min_motion: 5
+      erode_iters: 2
+      dilate_iters: 4
       blur_ksize: 1

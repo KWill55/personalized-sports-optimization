@@ -343,10 +343,10 @@ def print_report(intr_L: Intrinsics, intr_R: Intrinsics, extr: Extrinsics, outpu
 def main():
     
     # Configuration
-    cfg = load_config()
-    CHECKERBOARD_SIZE = tuple(cfg["inner_corners"])   # (cols, rows) — INNER corners
-    SQUARE_SIZE       = float(cfg["square_size_cm"])  # e.g., cm
-    mono_left_dir, mono_right_dir, stereo_combined_dir, output_dir, _ = get_paths(cfg)
+    project_cfg = load_config()
+    CHECKERBOARD_SIZE = tuple(project_cfg["inner_corners"])   # (cols, rows) — INNER corners
+    SQUARE_SIZE       = float(project_cfg["square_size_cm"])  # e.g., cm
+    mono_left_dir, mono_right_dir, stereo_combined_dir, output_dir, _ = get_paths(project_cfg)
     output_file = output_dir / "stereo_calib.npz"
     out_yaml    = output_dir / "stereo_calib_summary.yaml"
 

@@ -15,7 +15,8 @@ import pandas as pd
 from PIL import Image, ImageTk
 
 #TODO rename to session_gui or something 
-
+#TODO fix bug where i need to pause or the skeleton/videos will be unsynced
+# TODO fix the bug where the graph shrinks if you press restart clip too much 
 
 # =========================
 # Theme / constants
@@ -317,7 +318,7 @@ class AnglesPlotWidget(tk.Frame):
 
         self.visible_angles = None   # None => show all
         self.current_file = None
-        self.fig = Figure(figsize=(4, 3), dpi=100, constrained_layout=True)
+        self.fig = Figure(figsize=(4, 3), dpi=100, constrained_layout=False)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Frame")
         self.ax.set_ylabel("Angle (deg)")
@@ -360,7 +361,7 @@ class AnglesPlotWidget(tk.Frame):
             self.ax.plot(g["frame"].values, g["value"].values, linewidth=1.5, label=str(angle))
 
         self.ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0.)
-        self.fig.tight_layout()
+        # self.fig.tight_layout()
         self.canvas.draw_idle()
 
 
