@@ -368,8 +368,8 @@ def main():
 
     extrinsics = calibrate_extrinsics(
         objpoints_stereo, imgpointsL_stereo, imgpointsR_stereo,
-        intrinsics_L, intrinsics_R, image_size_stereo
-    )
+        intrinsics_L, intrinsics_R, image_size_stereo, 
+    ) #fixedintrinsic 
 
     # Save + human-readable summary
     save_npz(output_file, intrinsics_L, intrinsics_R, extrinsics)

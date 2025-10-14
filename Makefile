@@ -189,6 +189,9 @@ detect_makes: ## Detect ball metrics
 detect_makes_gui: ## Detect ball metrics
 	python $(ball_dir)/detect_makes_gui.py
 
+simple_mog2: ## Detect ball metrics
+	python $(ball_dir)/simple_mog2.py
+
 create_hoop_regions: ## Create hoop detection regions
 	python $(ball_dir)/create_hoop_regions.py
 

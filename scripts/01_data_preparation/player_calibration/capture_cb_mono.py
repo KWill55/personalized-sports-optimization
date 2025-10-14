@@ -305,9 +305,6 @@ class MonoCaptureGUI:
                 color = (0, 220, 0) if remaining < 1.0 else (0, 200, 200)
                 cv.putText(view, f"5 fingers detected: capturing in {remaining:0.1f}s",
                            (10, 125), cv.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-            else:
-                cv.putText(view, "Hold FIVE fingers up to auto-capture",
-                           (10, 125), cv.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
 
             # Auto-capture if held long enough (with a short cooldown)
             now = time.time()
