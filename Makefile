@@ -174,6 +174,9 @@ compute_3d_vel_acc: ## Compute 3D velocity and acceleration from 3D keypoints
 draw_2d_keypoints: ## Draw 2D keypoints onto videos
 	python $(player_dir)/draw_2d_keypoints.py
 
+verify_stereo_accuracy: ## Ensure proper triangulation
+	python $(player_dir)/verify_stereo_accuracy.py
+
 split_phases: ## Detect motion phases
 	python $(player_dir)/split_phases.py
 

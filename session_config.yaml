@@ -99,3 +99,23 @@ athletes:
       erode_iters: 2
       dilate_iters: 4
       blur_ksize: 1
+
+
+  tyler_haws:
+    
+    session_with_tyler_haws_gym:
+      hoop_regions: # Get these from create_hoop_regions.py
+        upper: [[634, 212], [685, 272]]
+        lower: [[634, 272], [685, 352]]
+      hsv_ranges:     
+        lower: [0, 75, 50]
+        upper: [12, 230, 200]
+      
+      ball_area_px: {min: 400, max: 4000}
+      circularity_min: .7
+      fill_ratio_min: .65
+
+      min_motion: 5
+      erode_iters: 2
+      dilate_iters: 4
+      blur_ksize: 1
