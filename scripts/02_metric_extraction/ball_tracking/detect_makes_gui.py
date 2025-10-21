@@ -22,18 +22,18 @@ def load_configs():
         raise FileNotFoundError("session_config.yaml not found")
 
     with open(proj_path, "r") as f:
-        config1 = yaml.safe_load(f)
+        project_cfg = yaml.safe_load(f)
     with open(sess_path, "r") as f:
-        config2 = yaml.safe_load(f)
+        session_cfg = yaml.safe_load(f)
 
-    ATHLETE = str(config1["athlete"])
-    SESSION = str(config1["session"])
-    FRAME_WIDTH = int(config1["original_frame_width"])
-    FRAME_HEIGHT = int(config1["original_frame_height"])
-    CROP_SIZE = tuple(config1["crop_size"])
-    FPS_DEFAULT = float(config1.get("player_tracking_fps", 30))
+    ATHLETE = str(project_cfg["athlete"])
+    SESSION = str(project_cfg["session"])
+    FRAME_WIDTH = int(project_cfg["original_frame_width"])
+    FRAME_HEIGHT = int(project_cfg["original_frame_height"])
+    CROP_SIZE = tuple(project_cfg["crop_size"])
+    FPS_DEFAULT = float(project_cfg["player_tracking_fps"])
 
-    SESSION_INFO = config2["athletes"][ATHLETE][SESSION]
+    SESSION_INFO = session_cfg["athletes"][ATHLETE][SESSION]
     UPPER = SESSION_INFO["hoop_regions"]["upper"]          # ((x1,y1),(x2,y2))
     LOWER = SESSION_INFO["hoop_regions"]["lower"]
     HSV_LOWER = np.array(SESSION_INFO["hsv_ranges"]["lower"], dtype=np.uint8)
@@ -185,7 +185,7 @@ class FreeThrowReviewerApp:
         # Playback state
         self.cap = None
         self.playing = False
-        self.fps = self.cfg["FPS_DEFAULT"]
+        self.fps = 0
         self.total_frames = 0
         self.width = 0
         self.height = 0
@@ -298,7 +298,7 @@ class FreeThrowReviewerApp:
 
         # properties
         fps = self.cap.get(cv2.CAP_PROP_FPS)
-        self.fps = float(fps) if fps and fps > 0 else (self.cfg["FPS_DEFAULT"] or 30.0)
+        self.fps = float(fps) if fps and fps > 0 else (self.cfg["player_tracking_fps"])
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
