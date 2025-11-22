@@ -1,6 +1,6 @@
 # Session Information
-athlete: "tyler_haws" #alton_overson
-session: "session_with_tyler_haws_gym" #session_04
+athlete: "tyler_haws" #alton_overson #tyler_haws
+session: "session_with_tyler_haws_gym" #"session_with_tyler_haws_gym" #session_04
 
 # Stereo Calibration Parameters
 inner_corners: [10,7] #[9,7] # [5,4] session 1 session 3: 9,7   # inner corners (columns, rows)

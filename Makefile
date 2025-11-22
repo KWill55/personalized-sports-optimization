@@ -180,6 +180,9 @@ verify_stereo_accuracy: ## Ensure proper triangulation
 split_phases: ## Detect motion phases
 	python $(player_dir)/split_phases.py
 
+label_phases_gui: ## Manually label phases
+	python $(player_dir)/label_phases_gui.py
+
 # ----------------------------------------
 # Ball Tracking
 # ----------------------------------------

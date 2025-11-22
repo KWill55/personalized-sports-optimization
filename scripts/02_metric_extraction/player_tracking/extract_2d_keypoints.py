@@ -2,23 +2,16 @@
 Title: extract_2d_keypoints.py
 
 Description:
-    This module's purpose is to extract 2D keypoints from player tracking videos using MediaPipe Pose.
-    It processes synchronized player tracking videos, extracts keypoints, and saves them to CSV files.
-
-Inputs:
-    - synchronized player tracking videos (1280x640, split into left and right halves)
-
-Usage:
-    - Running the script processes the videos, extracts keypoints, and saves them to CSV files
-
-Outputs:
-    - CSV files containing 2D keypoints for each frame
+    Extracts 2D keypoints using MediaPipe Pose.
+    Adds visibility filtering, Hampel outlier removal, and Butterworth smoothing.
 """
 
 import cv2
 import mediapipe as mp
 import pandas as pd
+import numpy as np
 from pathlib import Path
+from scipy.signal import butter, filtfilt
 import yaml
 
 # ========================================
@@ -33,27 +26,53 @@ ATHLETE = config["athlete"]
 SESSION = config["session"]
 
 # ========================================
-# Paths and Directories
+# Paths
 # ========================================
 base_dir = Path(__file__).resolve().parents[3]
 session_dir = base_dir / "data" / ATHLETE / SESSION
-
 videos_dir = session_dir / "videos"
 metrics_dir = session_dir / "metrics"
 
 input_video_dir = videos_dir / "player_tracking" / "synchronized"
 output_keypoints_dir = metrics_dir / "2d_keypoints"
-
-# Ensure output directory exists
 output_keypoints_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================
-# Classes
+# Signal Cleaning Helpers
+# ========================================
+
+def hampel_filter(series, window_size=5, n_sigmas=3):
+    """Remove spikes with Hampel filter"""
+    s = pd.Series(series)
+    rolling_median = s.rolling(window=window_size, center=True).median()
+    diff = np.abs(s - rolling_median)
+    mad = 1.4826 * diff.rolling(window=window_size, center=True).median()
+    outliers = diff > (n_sigmas * mad)
+    s[outliers] = np.nan
+    return s.interpolate(limit_direction="both")
+
+def butterworth_smooth(series, cutoff=0.1, order=2):
+    """Apply a low-pass Butterworth filter to smooth the signal"""
+    s = pd.Series(series).interpolate(limit_direction="both").bfill().ffill()
+
+    b, a = butter(order, cutoff)
+    return pd.Series(filtfilt(b, a, s))
+
+def clean_keypoint_series(x, y, v, vis_thresh=0.6):
+    """Clean a single keypoint’s (x, y) trajectory given visibility values."""
+    x = np.where(v < vis_thresh, np.nan, x)
+    y = np.where(v < vis_thresh, np.nan, y)
+    # Apply filters
+    x_clean = butterworth_smooth(hampel_filter(x))
+    y_clean = butterworth_smooth(hampel_filter(y))
+    return x_clean, y_clean, v
+
+# ========================================
+# Video Processing
 # ========================================
 class VideoProcessor:
     """Handles video reading and splitting into left and right frames."""
-    
-    # VideoProcessor initialization:
+
     def __init__(self, video_path):
         self.cap = cv2.VideoCapture(str(video_path))
         self.frames = self._read_frames()
@@ -78,45 +97,54 @@ class VideoProcessor:
         return left, right
 
 
+# ========================================
+# Pose Extraction
+# ========================================
 class PoseExtractor:
-    """Uses MediaPipe Pose to extract keypoints from frames."""
-    
-    # PoseExtractor initialization:
+    """Uses MediaPipe Pose to extract and clean keypoints."""
+
     def __init__(self):
         self.pose = mp.solutions.pose.Pose()
 
     def extract(self, frames):
-        """
-        Extract 2D pose keypoints from a list of video frames.
-
-        Args:
-            frames (list): A list of frames (BGR format) from a video.
-
-        Returns:
-            list: A list of keypoints per frame, where each frame is represented as
-                [x1, y1, v1, x2, y2, v2, ..., x33, y33, v33].
-                If no keypoints detected in a frame, returns [-1]*99.
-        """
         keypoints = []
+        all_landmarks = []
+
         for frame in frames:
             h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = self.pose.process(rgb)
+
             if results.pose_landmarks:
                 pts = []
                 for lm in results.pose_landmarks.landmark:
-                    x = lm.x * w   # convert to pixels
-                    y = lm.y * h   # convert to pixels
+                    x = lm.x * w
+                    y = lm.y * h
                     pts.extend([x, y, lm.visibility])
             else:
                 pts = [-1] * (33 * 3)
-            keypoints.append(pts)
-        return keypoints
+
+            all_landmarks.append(pts)
+
+        # Convert to DataFrame
+        columns = [f"{name}_{axis}" for name in KeypointSaver.LANDMARK_NAMES for axis in ("x", "y", "v")]
+        df = pd.DataFrame(all_landmarks, columns=columns)
+
+        # === Clean each keypoint series ===
+        for name in KeypointSaver.LANDMARK_NAMES:
+            x, y, v = df[f"{name}_x"].values, df[f"{name}_y"].values, df[f"{name}_v"].values
+            x_clean, y_clean, v = clean_keypoint_series(x, y, v)
+            df[f"{name}_x"], df[f"{name}_y"], df[f"{name}_v"] = x_clean, y_clean, v
+
+        return df
 
 
+# ========================================
+# Saving
+# ========================================
 class KeypointSaver:
-    """Saves extracted keypoints to CSV with appropriate headers."""
-    
+    """Saves extracted keypoints to CSV with headers."""
+
     LANDMARK_NAMES = [
         "nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer",
         "left_ear", "right_ear", "mouth_left", "mouth_right",
@@ -127,34 +155,30 @@ class KeypointSaver:
         "left_ankle", "right_ankle", "left_heel", "right_heel",
         "left_foot_index", "right_foot_index"
     ]
-    """List[str]: The 33 human body landmarks used by Google MediaPipe Pose."""
 
     @staticmethod
-    def save_csv(keypoints, output_path):
-        columns = ['frame'] + [f'{name}_{axis}' for name in KeypointSaver.LANDMARK_NAMES for axis in ('x', 'y', 'v')]
-        df = pd.DataFrame([[i] + kp for i, kp in enumerate(keypoints)], columns=columns)
+    def save_csv(df, output_path):
+        df.insert(0, "frame", range(len(df)))
         df.to_csv(output_path, index=False)
-        print(f"✅ Saved keypoints: {output_path}")
+        print(f"✅ Saved keypoints: {output_path.name}")
+
 
 # ========================================
-# Main Pipeline
+# Main
 # ========================================
 if __name__ == "__main__":
     for video_path in sorted(input_video_dir.glob("*.avi")):
         print(f"Processing {video_path.name}...")
 
-        # Load and split video frames
         processor = VideoProcessor(video_path)
         left_frames, right_frames = processor.split_frames()
 
-        # Extract keypoints for both views
         extractor = PoseExtractor()
-        left_kps = extractor.extract(left_frames)
-        right_kps = extractor.extract(right_frames)
+        left_df = extractor.extract(left_frames)
+        right_df = extractor.extract(right_frames)
 
-        # Save to CSV
-        left_csv  = output_keypoints_dir / f"{video_path.stem}_left_2d.csv"
+        left_csv = output_keypoints_dir / f"{video_path.stem}_left_2d.csv"
         right_csv = output_keypoints_dir / f"{video_path.stem}_right_2d.csv"
 
-        KeypointSaver.save_csv(left_kps, left_csv)
-        KeypointSaver.save_csv(right_kps, right_csv)
+        KeypointSaver.save_csv(left_df, left_csv)
+        KeypointSaver.save_csv(right_df, right_csv)
