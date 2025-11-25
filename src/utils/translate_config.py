@@ -1,12 +1,7 @@
 import yaml
 from pathlib import Path
 
-def load_config(config_path: str | Path) -> dict:
-    """Load the YAML config as a dictionary."""
-    config_path = Path(config_path)
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
-
+# i moved load_config to io_utils.py
 
 def load_paths(config_path: str | Path, athlete: str = None, session: str = None) -> dict:
     """
