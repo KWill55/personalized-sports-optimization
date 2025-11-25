@@ -54,6 +54,21 @@ class FreeThrowVisualizer:
             for c in curves
         ]
         return np.vstack(padded)
+    
+    def _plot_consistency_dots(self, y, mean, lower, upper, x, ax):
+        # Pad to match lengths (visualizer should not assume)
+        if len(y) < len(mean):
+            y = np.pad(y, (0, len(mean)-len(y)), constant_values=np.nan)
+
+        valid  = ~np.isnan(y)
+        inside = (y >= lower) & (y <= upper)
+
+        ax.scatter(x[inside & valid], y[inside & valid],
+                color="green", s=20, label="Inside ±1σ")
+
+        ax.scatter(x[~inside & valid], y[~inside & valid],
+                color="red", s=20, label="Outside ±1σ")
+
 
     def _plot_overlay(self, curves, joint_name, dataset_name, avg_release_frame=None):
         x = np.arange(curves.shape[1]) 
@@ -115,17 +130,21 @@ class FreeThrowVisualizer:
         plt.tight_layout()
         plt.show()
 
-
+            
     def plot_multiple_joints(
-            self,
-            dfs_dict,
-            joint_names,
-            dataset_name,
-            cropped_phases_df=None,
-            show_overlay=False,
-            show_mean_std=False,
-            show_release_line=False,
-        ):
+        self,
+        dfs_dict,
+        joint_names,
+        dataset_name,
+        cropped_phases_df=None,
+        show_overlay=False,
+        show_mean_std=False,
+        show_consistency=False,
+        show_release_line=False,
+        stats_dict=None,
+        throw_file_name=None,  # specify which throw to draw consistency for
+        ax=None
+    ):
             """
             High-level wrapper:
             - Extract curves
