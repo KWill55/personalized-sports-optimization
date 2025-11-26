@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-def align_by_lowest_point(cropped_angles_dfs: dict[str, pd.DataFrame],
+def align_by_lowest_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
                           angle_col: str = "elbow_flex_r"):
 
     aligned = {}
@@ -30,7 +30,7 @@ def align_by_lowest_point(cropped_angles_dfs: dict[str, pd.DataFrame],
     return aligned, pd.DataFrame(logs)
 
 
-def align_by_release_point(cropped_angles_dfs: dict[str, pd.DataFrame],
+def align_by_release_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
                            cropped_phases_df: pd.DataFrame,
                            angle_col: str = "elbow_flex_r"):
 
@@ -184,6 +184,25 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
         })
 
     return aligned, pd.DataFrame(logs)
+
+
+def apply_shift_to_all_joints(
+    original_dfs: dict[str, pd.DataFrame],
+    log_df: pd.DataFrame,
+    joint_cols: list[str]
+):
+    shifted = {}
+    shift_map = dict(zip(log_df["file"], log_df["shift"]))
+
+    for file, df in original_dfs.items():
+        s = shift_map.get(file, 0)
+        new_df = df.copy()
+        for c in joint_cols:
+            new_df[c] = new_df[c].shift(s)
+        shifted[file] = new_df
+
+    return shifted
+
 
 
 

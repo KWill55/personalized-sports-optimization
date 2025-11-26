@@ -186,7 +186,7 @@ def analyze_release_timing(phases_df: pd.DataFrame,
 
 def analyze_release_angles(
     cropped_angles_dfs: dict[str, pd.DataFrame],
-    phases_df: pd.DataFrame,
+    cropped_phases_df: pd.DataFrame,
     metrics_path: Path,
     joints_to_plot: list[str] = None,
     save_summary: bool = False,
@@ -220,7 +220,7 @@ def analyze_release_angles(
     release_summaries = []
 
     # Precompute base names in phases_df
-    phases_df = phases_df.copy()
+    phases_df = cropped_phases_df.copy()
     phases_df["base"] = phases_df["file"].str.split("_").str[0]
 
     for joint in joints_to_plot:
@@ -234,7 +234,7 @@ def analyze_release_angles(
             if match.empty:
                 continue
 
-            release_frame = match["release_frame"].values[0]
+            release_frame = match["cropped_release_frame"].values[0]
             if pd.isna(release_frame):
                 continue
             release_frame = int(release_frame)
