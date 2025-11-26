@@ -3,6 +3,8 @@ plots.py — evaluation figure helpers
 
 Generates confusion matrices, PR curves, ROC curves, and calibration plots.
 Also dumps underlying curve points to CSV for later comparison.
+
+TODO eventually get rid of this. This is old stuff 
 """
 
 import plotly.express as px
