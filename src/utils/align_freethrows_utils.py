@@ -185,23 +185,52 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
 
     return aligned, pd.DataFrame(logs)
 
-
-def apply_shift_to_all_joints(
-    original_dfs: dict[str, pd.DataFrame],
+def apply_shift_to_dataset(
+    dfs: dict[str, pd.DataFrame],
     log_df: pd.DataFrame,
-    joint_cols: list[str]
+    fps: int,
+    cols: list[str]
 ):
     shifted = {}
     shift_map = dict(zip(log_df["file"], log_df["shift"]))
 
-    for file, df in original_dfs.items():
+    for file, df in dfs.items():
         s = shift_map.get(file, 0)
         new_df = df.copy()
-        for c in joint_cols:
+        for c in cols:
             new_df[c] = new_df[c].shift(s)
         shifted[file] = new_df
 
     return shifted
+
+# new version that doesnt work yet 
+# def apply_shift_to_dataset(
+#     dfs: dict[str, pd.DataFrame],
+#     log_df: pd.DataFrame,
+#     fps: int,
+#     frame_col: str = "frame",
+# ) -> dict[str, pd.DataFrame]:
+    
+#     shifted_dfs = {}
+
+#     for name, df in dfs.items():
+#         if name not in log_df.index:
+#             continue
+        
+#         shift_seconds = log_df.loc[name, "shift_seconds"]
+#         shift_frames = int(round(shift_seconds * fps))
+
+#         temp = df.copy()
+
+#         # Create aligned frame number
+#         temp["aligned_frame"] = temp[frame_col] + shift_frames
+
+#         # Use aligned_frame as new index for plotting/merging
+#         temp = temp.set_index("aligned_frame").sort_index()
+
+#         shifted_dfs[name] = temp
+    
+#     return shifted_dfs
 
 
 

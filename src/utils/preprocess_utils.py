@@ -98,6 +98,8 @@ def combine_angles_dfs(angles_dfs: dict[str, pd.DataFrame], session_id: str) -> 
 
 def crop_to_freethrow(angles_dfs: dict[str, pd.DataFrame], phases_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     cropped = {}
+    successful_crops = 0
+
     for file_name, df in angles_dfs.items():
         
         # Match by filename
@@ -105,12 +107,6 @@ def crop_to_freethrow(angles_dfs: dict[str, pd.DataFrame], phases_df: pd.DataFra
         # print(f" Base name for angles_dfs {file_name}: {base_name}")
 
         phase_row = phases_df[phases_df["file"].str.contains(base_name, na=False)] 
-
-        # if not phase_row.empty:
-        #     matched_file = phase_row["file"].values[0]
-            # print(f"✅ Match found: angles_dfs '{file_name}' ↔ phases_df '{matched_file}'")
-        # else:
-            # print(f"⚠️ No match for {file_name}")
 
         if phase_row.empty:
             # print(f"[WARNING] No phase data found for {file_name}, skipping.")
@@ -133,11 +129,15 @@ def crop_to_freethrow(angles_dfs: dict[str, pd.DataFrame], phases_df: pd.DataFra
             df.insert(0, "frame", range(len(df)))
 
         # Crop DataFrame
-        cropped_df = df[(df["frame"] >= start) & (df["frame"] <= end)].reset_index(drop=True)
+        cropped_df = df[(df["frame"] >= start) & (df["frame"] <= end)].copy()
+        cropped_df.reset_index(drop=True, inplace=True)
 
+        cropped_df["frame"] = np.arange(len(cropped_df))
 
         cropped[file_name] = cropped_df
+        successful_crops += 1
 
+    print(f"\n✅ Successfully cropped {successful_crops} out of {len(angles_dfs)} freethrow sequences.")
     return cropped    
 
 def align_by_reference(cropped_angles_dfs: dict[str, pd.DataFrame],
