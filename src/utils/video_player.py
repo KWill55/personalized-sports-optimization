@@ -17,32 +17,43 @@ Outputs
     - Displays video files in GUI 
     - Displays video information such as resolution, duration, FPS, and frame count
 
-Last Updated: 15 July 2025
+Last Updated: 4 December 2025
 """
 
-### TODO ###:
-# make this reusable for 2D pose estimation videos and other video types besides .avi (such as .mp4)
-# maybe switch this file to be in shared if it is used by multiple scripts (I think it will be) 
-
+import sys 
 import cv2
 import os
 import tkinter as tk
 from tkinter import filedialog, Label, Button
 from PIL import Image, ImageTk
 from pathlib import Path
-import yaml
+
+# ========= Find project root =========
+def find_project_root():
+    p = Path(__file__).resolve()
+    for parent in [p] + list(p.parents):
+        if (parent / "project_config.yaml").exists():
+            return parent
+    raise FileNotFoundError("project_config.yaml not found")
+
+PROJECT_ROOT = find_project_root()
+
+# ========= Ensure src/ is importable BEFORE any utils imports =========
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+
+from utils.io_utils import load_config
+
 
 # =========================
 # Config
 # =========================
 
-# Load YAML Config
-config_path = Path(__file__).resolve().parents[1] / "project_config.yaml"
-with open(config_path, "r") as f:
-    cfg = yaml.safe_load(f)
 
-ATHLETE = cfg["athlete"]
-SESSION = cfg["session"]
+project_cfg = load_config("project_config.yaml")
+
+ATHLETE = project_cfg["athlete"]
+SESSION = project_cfg["session"]
 
 # =========================
 # Paths and Directories 
@@ -57,7 +68,7 @@ session_dir = base_dir / "data" / ATHLETE / SESSION
 class VideoPlayerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("AVI Video Player")
+        self.root.title("Video Player")
 
         self.video_files = []
         self.current_index = 0
@@ -65,7 +76,7 @@ class VideoPlayerApp:
         self.playing = False
 
         # UI Elements
-        Label(root, text="AVI Video Player", font=("Helvetica", 24, "bold")).pack(pady=(10, 2))
+        Label(root, text="Video Player", font=("Helvetica", 24, "bold")).pack(pady=(10, 2))
 
         # Create a frame to act as a border for video display
         video_frame_container = tk.Frame(root, bg="black", padx=5, pady=5)
@@ -108,10 +119,10 @@ class VideoPlayerApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def load_folder(self):
-        folder = filedialog.askdirectory(initialdir=session_dir, title="Select Folder with AVI Files")
+        folder = filedialog.askdirectory(initialdir=session_dir, title="Select Folder with video Files")
         if not folder:
             return
-        self.video_files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".avi")]
+        self.video_files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".avi") or f.endswith(".mp4")]
         self.video_files.sort()
         if self.video_files:
             self.current_index = 0

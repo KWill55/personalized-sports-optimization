@@ -67,23 +67,27 @@ def align_by_release_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
     return aligned, pd.DataFrame(logs)
 
 
-def align_by_min_unsigned_area(cropped_angles_dfs: dict[str, pd.DataFrame],
-                               angle_col: str = "elbow_flex_r",
+def align_by_min_unsigned_area(cropped_dfs: dict[str, pd.DataFrame],
+                               col: str,
                                search: int = 20):
+    """
+    col: column to align by in dataframe 
+    """
+    
     aligned = {}
     logs = []
 
     # 1. Build mean curve (shortest common length)
-    min_len = min(len(df) for df in cropped_angles_dfs.values())
+    min_len = min(len(df) for df in cropped_dfs.values())
     curves = np.vstack([
-        df[angle_col].values[:min_len]
-        for df in cropped_angles_dfs.values()
+        df[col].values[:min_len]
+        for df in cropped_dfs.values()
     ])
     mean_curve = np.nanmean(curves, axis=0)
 
     # 2. For each throw, find shift with minimum unsigned area
-    for file, df in cropped_angles_dfs.items():
-        curve = df[angle_col].values[:min_len]
+    for file, df in cropped_dfs.items():
+        curve = df[col].values[:min_len]
         best_shift = 0
         best_area = np.inf
 
@@ -105,7 +109,7 @@ def align_by_min_unsigned_area(cropped_angles_dfs: dict[str, pd.DataFrame],
                 best_shift = shift
 
         aligned_df = df.copy()
-        aligned_df[angle_col] = df[angle_col].shift(best_shift)
+        aligned_df[col] = df[col].shift(best_shift)
 
         aligned[file] = aligned_df
         logs.append({"file": file, "shift": best_shift, "area": best_area})

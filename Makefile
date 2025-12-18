@@ -159,7 +159,10 @@ split_phases:
 	python $(player_dir)/split_phases.py
 
 label_phases_gui:
-	python $(player_dir)/label_phases_gui.py
+	python -m src.utils.label_phases_gui
+
+label_ball_phases_gui:
+	python -m src.utils.label_ball_phases_gui
 
 
 # ----- Ball Tracking -----

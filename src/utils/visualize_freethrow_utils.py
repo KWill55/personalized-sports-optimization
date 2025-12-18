@@ -77,7 +77,7 @@ class FreeThrowVisualizer:
         ]
         return np.vstack(padded)
 
-    def _collect_curves_with_optional_x(self, dfs_dict, y_col, x_col=None):
+    def _collect_curves_with_optional_x(self, dfs_dict, y_col, x_col=None, max_step_jump=None):
         """
         Collect y curves (required) and optional x curves, padded to equal length.
         Returns (y_matrix, x_matrix or None, used_x_flag, warning_message or None)
@@ -101,6 +101,22 @@ class FreeThrowVisualizer:
                 else:
                     missing_or_mismatch = True
                     x_list.append(None)
+
+            if max_step_jump is not None and x_col and x_list:
+                current_x = x_list[-1]
+                current_y = y_list[-1]
+                if current_x is not None and len(current_x) == len(current_y):
+                    dx = np.diff(current_x)
+                    dy = np.diff(current_y)
+                    step = np.sqrt(dx * dx + dy * dy)
+                    outlier_idx = np.where(step > max_step_jump)[0] + 1
+                    if outlier_idx.size:
+                        current_x = current_x.astype(float, copy=True)
+                        current_y = current_y.astype(float, copy=True)
+                        current_x[outlier_idx] = np.nan
+                        current_y[outlier_idx] = np.nan
+                        x_list[-1] = current_x
+                        y_list[-1] = current_y
 
         if not y_list:
             return None, None, False, None
@@ -127,6 +143,36 @@ class FreeThrowVisualizer:
                 used_x = True
 
         return np.vstack(y_padded), x_matrix, used_x, warning
+
+    def find_largest_jumps(self, dfs_dict, x_col="x", y_col="y", top_n=5):
+        """
+        Find the largest frame-to-frame jump per throw.
+        Returns a sorted list of tuples:
+        (file_name, jump_magnitude, (x0, y0), (x1, y1), idx0, idx1)
+        """
+        results = []
+        for name, df in dfs_dict.items():
+            if x_col not in df.columns or y_col not in df.columns:
+                continue
+            x = df[x_col].to_numpy()
+            y = df[y_col].to_numpy()
+
+            valid = ~np.isnan(x) & ~np.isnan(y)
+            if valid.sum() < 2:
+                continue
+
+            dx = np.diff(x)
+            dy = np.diff(y)
+            step = np.sqrt(dx * dx + dy * dy)
+
+            if len(step) == 0 or np.all(np.isnan(step)):
+                continue
+
+            j = int(np.nanargmax(step))
+            results.append((name, step[j], (x[j], y[j]), (x[j + 1], y[j + 1]), j, j + 1))
+
+        results.sort(key=lambda r: r[1], reverse=True)
+        return results[:top_n]
 
     # =====================================================
     # Plot primitives (use 'curve_name', not 'joint')
@@ -502,23 +548,55 @@ class FreeThrowVisualizer:
 
     def interactive_review(
         self,
-        curve_name,
         dfs_dict,
-        stats_dict,
-        title_prefix="Throw"
+        curve_name=None,
+        stats_dict=None,
+        title_prefix="Throw",
+        x_col=None,
+        y_col=None,
+        x_label=None,
+        y_label=None,
+        x_unit=None,
+        y_unit=None,
+        x_min=None,
+        x_max=None,
+        y_min=None,
+        y_max=None,
+        flip_y_axis=False,
+        show_overlay=False,
+        show_mean_std=True,
+        show_consistency=True,
+        show_release_line=False,
+        cropped_phases_df=None,
     ):
         """
         Interactive viewer for exploring individual throws for ANY curve
         (joints, keypoints, ball metrics, etc.).
 
         Args:
-            curve_name:   string, e.g., 'elbow_flex_r' or 'right_wrist_x'
-            dfs_dict:     dict[file_name → DataFrame]
-            stats_dict:   output of compute_mean_std_for_alignment(...)
+            curve_name:     string, e.g., 'elbow_flex_r' or 'right_wrist_x'
+            dfs_dict:       dict[file_name → DataFrame]
+            stats_dict:     output of compute_mean_std_for_alignment(...)
+            title_prefix:   prefix for the interactive plot title
+            x_col/y_col:    optional explicit columns for x/y (y_col overrides curve_name)
+            x_label/y_label: optional axis labels
+            x_unit/y_unit:  optional unit suffixes
+            x_min/x_max/y_min/y_max: axis bounds
+            flip_y_axis:    invert y-axis if plotting image coords
+            show_overlay:   toggle overlay view
+            show_mean_std:  toggle mean/±σ view
+            show_consistency: toggle consistency dots
+            show_release_line: toggle release line
+            cropped_phases_df: optional phases df for release line
         """
 
-        if curve_name not in stats_dict:
-            raise ValueError(f"No stats found for curve '{curve_name}'")
+        target_curve = y_col or curve_name
+        if target_curve is None:
+            raise ValueError("Provide 'curve_name' or 'y_col' for interactive review.")
+
+        if show_consistency:
+            if stats_dict is None or target_curve not in stats_dict:
+                raise ValueError(f"No stats found for curve '{target_curve}'")
 
         files = list(dfs_dict.keys())
 
@@ -532,15 +610,27 @@ class FreeThrowVisualizer:
 
             self.plot_multiple_curves(
                 dfs_dict=dfs_dict,
-                curve_names=[curve_name],
+                curve_names=[target_curve],
                 dataset_name=f"{title_prefix}: {file}",
-                cropped_phases_df=None,
-                show_overlay=False,
-                show_mean_std=True,
-                show_consistency=True,
+                cropped_phases_df=cropped_phases_df,
+                show_overlay=show_overlay,
+                show_mean_std=show_mean_std,
+                show_consistency=show_consistency,
+                show_release_line=show_release_line,
                 stats_dict=stats_dict,
                 throw_file=file,
-                ax=ax
+                ax=ax,
+                x_col=x_col,
+                y_col=target_curve,
+                x_label=x_label,
+                y_label=y_label,
+                x_unit=x_unit,
+                y_unit=y_unit,
+                x_min=x_min,
+                x_max=x_max,
+                y_min=y_min,
+                y_max=y_max,
+                flip_y_axis=flip_y_axis
             )
 
             ax.legend()

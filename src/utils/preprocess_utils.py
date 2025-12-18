@@ -96,7 +96,12 @@ def combine_angles_dfs(angles_dfs: dict[str, pd.DataFrame], session_id: str) -> 
 
     return pd.concat(dfs, ignore_index=True)
 
-def crop_to_freethrow(angles_dfs: dict[str, pd.DataFrame], phases_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def crop_to_freethrow(
+    angles_dfs: dict[str, pd.DataFrame],
+    phases_df: pd.DataFrame,
+    start_col: str = "raw_windup_start",
+    end_col: str = "raw_followthrough_end",
+) -> dict[str, pd.DataFrame]:
     cropped = {}
     successful_crops = 0
 
@@ -113,8 +118,12 @@ def crop_to_freethrow(angles_dfs: dict[str, pd.DataFrame], phases_df: pd.DataFra
             continue
 
         # Extract frame range safely
-        start = phase_row["raw_windup_start"].values[0]
-        end = phase_row["raw_followthrough_end"].values[0]
+        if start_col not in phase_row.columns or end_col not in phase_row.columns:
+            # print(f"[WARNING] Missing {start_col}/{end_col} for {file_name}, skipping.")
+            continue
+
+        start = phase_row[start_col].values[0]
+        end = phase_row[end_col].values[0]
 
         if np.isnan(start) or np.isnan(end):
             # print(f"[WARNING] Missing phase values for {file_name}, skipping.")

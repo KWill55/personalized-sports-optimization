@@ -1,0 +1,8 @@
+IMPROVING EXISTING CODE
+
+
+NEW ADDITIONS 
+* automate ball phases through horizontal line. 
+    * how can i figure out what the start frame should be? does it matter as much?
+    * end of crop is once ball drops below a certain line (bottom of net) after getting above that line for some duration of time
+

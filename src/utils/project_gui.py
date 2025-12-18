@@ -190,7 +190,7 @@ def list_videos_with_clips(dir_path: Path) -> dict[int, Path]:
 def load_phases_table(phase_files: pd.DataFrame, athlete: str, fps: float = 60) -> pd.DataFrame:
     """
     Output columns:
-    ['athlete','session','clip','file','windup_start','release_frame','followthrough_end',
+    ['athlete','session','clip','file','raw_windup_start','raw_release_frame','raw_followthrough_end',
      'windup_t','release_t','followthrough_t']
     """
     dfs = []
@@ -199,7 +199,7 @@ def load_phases_table(phase_files: pd.DataFrame, athlete: str, fps: float = 60) 
         df = pd.read_csv(p)
 
         cols = {c.lower(): c for c in df.columns}
-        need = ["file","windup_start","release_frame","followthrough_end"]
+        need = ["file","raw_windup_start","raw_release_frame","raw_followthrough_end"]
         missing = [c for c in need if c not in cols]
         if missing:
             raise ValueError(f"Missing columns in {p}: {missing}")
@@ -212,11 +212,11 @@ def load_phases_table(phase_files: pd.DataFrame, athlete: str, fps: float = 60) 
         df["clip"] = df["file"].apply(extract_clip_id_from_file_str)
 
         denom = float(max(fps, 1))
-        df["windup_t"] = df["windup_start"] / denom
-        df["release_t"] = df["release_frame"] / denom
-        df["followthrough_t"] = df["followthrough_end"] / denom
+        df["windup_t"] = df["raw_windup_start"] / denom
+        df["release_t"] = df["raw_release_frame"] / denom
+        df["followthrough_t"] = df["raw_followthrough_end"] / denom
 
-        for c in ["windup_start","release_frame","followthrough_end"]:
+        for c in ["raw_windup_start","raw_release_frame","raw_followthrough_end"]:
             df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
 
         dfs.append(df)
@@ -224,7 +224,7 @@ def load_phases_table(phase_files: pd.DataFrame, athlete: str, fps: float = 60) 
     if not dfs:
         return pd.DataFrame(columns=[
             "athlete","session","clip","file",
-            "windup_start","release_frame","followthrough_end",
+            "raw_windup_start","raw_release_frame","raw_followthrough_end",
             "windup_t","release_t","followthrough_t"
         ])
 
@@ -232,7 +232,7 @@ def load_phases_table(phase_files: pd.DataFrame, athlete: str, fps: float = 60) 
     out = out.dropna(subset=["clip"])
     out = out[[
         "athlete","session","clip","file",
-        "windup_start","release_frame","followthrough_end",
+        "raw_windup_start","raw_release_frame","raw_followthrough_end",
         "windup_t","release_t","followthrough_t"
     ]]
     return out
@@ -270,7 +270,7 @@ def get_release_rows(angles_long_df: pd.DataFrame,
                      phases_df: pd.DataFrame,
                      sessions: str | list[str]) -> pd.DataFrame:
     """
-    For each session/clip/file, take angle values at the clip's release_frame.
+    For each session/clip/file, take angle values at the clip's raw_release_frame.
     Returns ['athlete','session','clip','file','angle','value'] at release.
     """
     if isinstance(sessions, str):
@@ -279,7 +279,7 @@ def get_release_rows(angles_long_df: pd.DataFrame,
     ph = phases_df[phases_df["session"].isin(sessions)].copy()
 
     need_ang = {"athlete","session","clip","file","frame","angle","value"}
-    need_ph = {"athlete","session","clip","file","release_frame"}
+    need_ph = {"athlete","session","clip","file","raw_release_frame"}
     if not need_ang.issubset(ang.columns):
         missing = need_ang - set(ang.columns)
         raise KeyError(f"angles_long_df missing columns: {missing}")
@@ -288,11 +288,11 @@ def get_release_rows(angles_long_df: pd.DataFrame,
         raise KeyError(f"phases_df missing columns: {missing}")
 
     m = ang.merge(
-        ph[["athlete","session","clip","file","release_frame"]],
+        ph[["athlete","session","clip","file","raw_release_frame"]],
         on=["athlete","session","clip","file"],
         how="inner"
     )
-    m = m[m["frame"] == m["release_frame"]].copy()
+    m = m[m["frame"] == m["raw_release_frame"]].copy()
     m = (
         m.drop_duplicates(subset=["athlete","session","clip","file","angle"])
          .sort_values(["session","clip","file","angle"])
@@ -718,14 +718,13 @@ class Skeleton3DWidget(tk.Frame):
     TORSO_IDS = [MP33_IDX[n] for n in TORSO_NAMES]
 
     def __init__(self, parent, *, bg_border="#555", bg_panel=TRIM_COLOR, fps=FPS,
-                point_size=60, line_width=7, use_global_limits=False, fixed_R=None,
-                init_view=(90, 90),   # (elev, azim): up/down tilt, rotation around Z axis
-                zoom_factor=0.42,      #  smaller values = more zoomed in
-                bias_axis = "y",
-                height_bias=0.62, # fraction of R to shift upward 
-                roll_deg=-180, 
-                roll_axis='y'
-                ): 
+                 point_size=60, line_width=7, use_global_limits=False, fixed_R=None,
+                 init_view=(90, 90),   # (elev, azim): up/down tilt, rotation around Z axis
+                 zoom_factor=0.42,     # smaller values = more zoomed in
+                 bias_axis="y",
+                 height_bias=0.62,     # fraction of R to shift upward
+                 roll_deg=-180,
+                 roll_axis="y"):
         super().__init__(parent, bg=bg_border)
         # Config
         self.fps = fps
@@ -794,10 +793,15 @@ class Skeleton3DWidget(tk.Frame):
 
         # Pre-compute a global R if requested (based on torso-centered cloud across all frames)
         if self.use_global_limits and self.points is not None and self.points.size > 0:
-            centroids = self.points[:, self.TORSO_IDS, :].mean(axis=1)
-            Pc_all = self.points - centroids[:, None, :]
-            span_all = np.max(np.ptp(Pc_all, axis=1))  # max across frames of overall extent
-            self.global_R = float(max(span_all, 1e-6) * self.zoom_factor)
+            # NaN-safe centroids and span
+            centroids = np.nanmean(self.points[:, self.TORSO_IDS, :], axis=1)  # (T, 3)
+            Pc_all = self.points - centroids[:, None, :]                       # (T, 33, 3)
+            # extent per frame, ignoring NaNs
+            span_per_frame = np.nanptp(Pc_all, axis=1)                         # (T, 3)
+            span_all = np.nanmax(span_per_frame)                               # scalar
+            if not np.isfinite(span_all) or span_all <= 0:
+                span_all = 1e-6
+            self.global_R = float(span_all * self.zoom_factor)
         else:
             self.global_R = None
 
@@ -806,13 +810,15 @@ class Skeleton3DWidget(tk.Frame):
 
     # --------- Playback controls ---------
     def restart(self):
-        if self.points is None: return
+        if self.points is None:
+            return
         self.playing = False
         self.t = 0
         self._draw()
 
     def play(self):
-        if self.points is None or self.playing: return
+        if self.points is None or self.playing:
+            return
         self.playing = True
         self._loop()
 
@@ -820,19 +826,22 @@ class Skeleton3DWidget(tk.Frame):
         self.playing = False
 
     def next_frame(self):
-        if self.points is None: return
+        if self.points is None:
+            return
         self.playing = False
         self.t = min(self.T - 1, self.t + 1)
         self._draw()
 
     def prev_frame(self):
-        if self.points is None: return
+        if self.points is None:
+            return
         self.playing = False
         self.t = max(0, self.t - 1)
         self._draw()
 
     def _loop(self):
-        if not self.playing: return
+        if not self.playing:
+            return
         self.t += 1
         if self.t >= self.T:
             self.t = self.T - 1
@@ -842,13 +851,27 @@ class Skeleton3DWidget(tk.Frame):
 
     # --------- Draw helpers ---------
     def _compute_R(self, Pc_frame: np.ndarray) -> float:
-        """Choose display radius R based on priority: fixed_R > global_R > per-frame span."""
+        """
+        Compute R safely even when Pc_frame contains NaNs.
+        Priority: fixed_R > global_R > per-frame span.
+        """
+        # explicit override
         if self.fixed_R is not None:
             return float(self.fixed_R)
-        if self.global_R is not None:
+
+        # global R only valid if finite
+        if self.global_R is not None and np.isfinite(self.global_R):
             return float(self.global_R)
-        span = float(max(np.ptp(Pc_frame, axis=0).max(), 1e-6))
-        return span * self.zoom_factor
+
+        # per-frame span, NaN-safe
+        span_vec = np.nanptp(Pc_frame, axis=0)  # (3,)
+        span = np.nanmax(span_vec)             # scalar
+
+        # If all points were NaN or span invalid
+        if not np.isfinite(span) or span <= 0:
+            span = 1e-6
+
+        return float(span * self.zoom_factor)
 
     def _clear_axes(self):
         self.ax.cla()
@@ -856,22 +879,22 @@ class Skeleton3DWidget(tk.Frame):
         self.ax.set_box_aspect((1, 1, 1))
 
     @staticmethod
-    def _rotate_about_axis(points, angle_deg, axis='z'):
+    def _rotate_about_axis(points, angle_deg, axis="z"):
         """Rotate Nx3 points by angle around an axis (x, y, or z)."""
         a = np.deg2rad(angle_deg)
         ca, sa = np.cos(a), np.sin(a)
-        if axis == 'x':
+        if axis == "x":
             R = np.array([[1, 0, 0],
-                        [0, ca, -sa],
-                        [0, sa,  ca]], dtype=float)
-        elif axis == 'y':
+                          [0, ca, -sa],
+                          [0, sa,  ca]], dtype=float)
+        elif axis == "y":
             R = np.array([[ ca, 0, sa],
-                        [  0, 1,  0],
-                        [-sa, 0, ca]], dtype=float)
+                          [  0, 1,  0],
+                          [-sa, 0, ca]], dtype=float)
         else:  # 'z'
             R = np.array([[ca, -sa, 0],
-                        [sa,  ca, 0],
-                        [ 0,   0, 1]], dtype=float)
+                          [sa,  ca, 0],
+                          [ 0,   0, 1]], dtype=float)
         return points @ R.T
 
     def _draw(self):
@@ -880,21 +903,42 @@ class Skeleton3DWidget(tk.Frame):
             self._draw_text("No data loaded")
             return
 
-        # center on torso
-        P = self.points[self.t]
-        c = P[self.TORSO_IDS].mean(axis=0)
+        # ---- center on torso (NaN-safe mean) ----
+        P = self.points[self.t]  # (33, 3)
+        c = np.nanmean(P[self.TORSO_IDS], axis=0)  # (3,)
         Pc = P - c  # centered
         if self.roll_deg:
             Pc = self._rotate_about_axis(Pc, self.roll_deg, axis=self.roll_axis)
 
-        # draw points & bones
-        self.ax.scatter(Pc[:, 0], Pc[:, 1], Pc[:, 2], s=self.point_size, c="k")
-        for a, b in MP33_EDGES:
-            xa, ya, za = Pc[a]; xb, yb, zb = Pc[b]
-            self.ax.plot([xa, xb], [ya, yb], [za, zb], linewidth=self.line_width, color="tab:blue")
+        # ---- draw points, skipping NaN joints ----
+        valid_mask = np.isfinite(Pc).all(axis=1)
+        if np.any(valid_mask):
+            Pc_valid = Pc[valid_mask]
+            self.ax.scatter(
+                Pc_valid[:, 0],
+                Pc_valid[:, 1],
+                Pc_valid[:, 2],
+                s=self.point_size,
+                c="k",
+            )
 
-        # limits with upward bias
+        # ---- draw bones, skipping edges with NaNs ----
+        for a, b in MP33_EDGES:
+            pa, pb = Pc[a], Pc[b]
+            if not (np.isfinite(pa).all() and np.isfinite(pb).all()):
+                continue
+            self.ax.plot(
+                [pa[0], pb[0]],
+                [pa[1], pb[1]],
+                [pa[2], pb[2]],
+                linewidth=self.line_width,
+                color="tab:blue",
+            )
+
+        # ---- limits with upward bias (NaN-safe R) ----
         R = self._compute_R(Pc)
+        if not np.isfinite(R) or R <= 0:
+            R = 1.0
         b = self.height_bias * R
 
         if self.bias_axis == "x":
@@ -905,7 +949,7 @@ class Skeleton3DWidget(tk.Frame):
             self.ax.set_xlim(-R, R)
             self.ax.set_ylim(-R + b, R + b)
             self.ax.set_zlim(-R, R)
-        else:  # "z" (default)
+        else:  # "z"
             self.ax.set_xlim(-R, R)
             self.ax.set_ylim(-R, R)
             self.ax.set_zlim(-R + b, R + b)
@@ -915,15 +959,25 @@ class Skeleton3DWidget(tk.Frame):
             self.ax.view_init(elev=elev, azim=azim)
             self._has_set_initial_view = True
 
-        self.ax.set_xticks([]); self.ax.set_yticks([]); self.ax.set_zticks([])
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.ax.set_zticks([])
         self.ax.grid(False)
         self.canvas.draw_idle()
 
     def _draw_text(self, text: str):
         self._clear_axes()
-        self.ax.text2D(0.5, 0.5, text, transform=self.ax.transAxes,
-                       ha="center", va="center", fontsize=11)
+        self.ax.text2D(
+            0.5,
+            0.5,
+            text,
+            transform=self.ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=11,
+        )
         self.canvas.draw_idle()
+
 
 
 

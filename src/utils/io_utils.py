@@ -8,12 +8,30 @@ from pathlib import Path
 import re
 from tkinter import Tk, filedialog, Label, Button
 import os
+from pathlib import Path
+import sys
+
+# Find project root (directory containing project_config.yaml)
+def find_project_root():
+    p = Path(__file__).resolve()
+    for parent in [p] + list(p.parents):
+        if (parent / "project_config.yaml").exists():
+            return parent
+    raise FileNotFoundError("project_config.yaml not found")
+
+PROJECT_ROOT = find_project_root()
+
+# Add src/ to import path
+sys.path.append(str(PROJECT_ROOT / "src"))
+
 
 def pick_folder(initial_dir="."):
     """Open a folder picker and return the selected folder as a Path."""
+    initial_dir = Path(initial_dir).resolve()
     root = Tk()
     root.withdraw()
     root.attributes("-topmost", True)
+    root.update()
 
     folder = filedialog.askdirectory(initialdir=str(initial_dir), title="Select Folder")
     root.destroy()
