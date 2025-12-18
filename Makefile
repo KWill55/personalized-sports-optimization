@@ -2,21 +2,21 @@
 # Purpose:
 # Automate data processing, plotting, and analysis for basketball free throw kinematics
 
-# Targets
-all: process split plot analyze
+# ---------------------------
+# GLOBAL CONSTANTS
+# ---------------------------
+SRC := src
 
-.PHONY: train_phase_models_cv
-
-# Constants
 ATHLETE := $(shell python3 -c "import yaml; print(yaml.safe_load(open('project_config.yaml'))['athlete'])")
 SESSION := $(shell python3 -c "import yaml; print(yaml.safe_load(open('project_config.yaml'))['session'])")
 
+export PYTHONPATH := $(CURDIR):$(PYTHONPATH)
+
+.PHONY: help clean
+
 # ======================================== 
-# help
+# HELP COMMAND
 # ========================================
-
-.PHONY: help
-
 help:
 	@echo ""
 	@echo "\033[1mMakefile Command Reference\033[0m"
@@ -35,7 +35,7 @@ help:
 
 
 # ======================================== 
-# Phase 1: Data Preparation 
+# PHASE 1 — DATA PREPARATION
 # ========================================
 divider1-header: ## -------------------------------------
 	@:
@@ -44,186 +44,163 @@ phase1-header: ## PHASE 1 SCRIPTS
 divider2-header: ## -------------------------------------
 	@:
 
-# ----------------------------------------
-# Paths and Directories  
-# ----------------------------------------
-prep_dir := scripts/01_data_preparation
+# Directories
+prep_dir := $(SRC)/01_data_preparation
 calibrate_dir := $(prep_dir)/player_calibration
 preprocessing_dir := $(prep_dir)/video_preprocessing
-helpers_dir := $(prep_dir)/helpers
+helpers1_dir := $(prep_dir)/helpers
 
-# ----------------------------------------
-# Player calibration
-# ----------------------------------------
+
+# ----- Player calibration -----
 calibrate-header: ## 🔧 Calibrate Camera System
 	@: 
 
-generate_grid: ## Step 0 - print a calibration grid
-	@echo "Generating calibration grid..."
+generate_grid: ## Step 0 - print calibration grid
 	python $(calibrate_dir)/generate_grid.py
 
-setup_cameras: ## Step 1 - Ensure cameras can see CB grid. 
-	@echo "Opening camera feeds to ensure cb detection"
+setup_cameras: ## Step 1 - Ensure cameras detect chessboard grid
 	python $(calibrate_dir)/setup_cameras.py
 
-capture_cb_mono: ## Step 2 - Capture calibration of CB grid.
-	@echo "Capturing images for calibration..."
+capture_cb_mono: ## Step 2a - Capture mono calibration
 	python $(calibrate_dir)/capture_cb_mono.py
 
-capture_cb_pairs: ## Step 2 - Capture calibration pairs of CB grid.
-	@echo "Capturing image pairs for calibration..."
+capture_cb_pairs: ## Step 2b - Capture stereo calibration pairs
 	python $(calibrate_dir)/capture_cb_pairs.py
 
-capture_calib_images: ## Step 2 - Capture calibration pairs of CB grid.
-	@echo "Capturing images for calibration..."
+capture_calib_images: ## Alternate capture script
 	python $(calibrate_dir)/capture_calib_images.py
 
-calibrate_stereo: ## Step 3 - Stereo Calibration (int/ext)
-	@echo "Calibrating stereo cameras..."
+calibrate_stereo: ## Step 3 - Stereo Calibration
 	python $(calibrate_dir)/calibrate_stereo.py
 
-estimate_intrinsics: ## Estimate intrinsics from calibration images
-	@echo "Estimating intrinsics from calibration images..."
+estimate_intrinsics:
 	python $(calibrate_dir)/estimate_intrinsics.py
 
-estimate_extrinsics: ## Estimate extrinsics from calibration images
-	@echo "Estimating extrinsics from calibration images..."
+estimate_extrinsics:
 	python $(calibrate_dir)/estimate_extrinsics.py
 
-inspect_calibration: ## Step 4 - Ensure calibration was successful
-	@echo "Printing parameters to terminal and opening images..."
+inspect_calibration:
 	python $(calibrate_dir)/inspect_calibration.py
 
-# ----------------------------------------
-# Record freethrows
-# ----------------------------------------
+
+# ----- Record freethrows -----
 record-header: ## 🎥 Record Freethrows
 	@:
 
-record_freethrows: ## Record a freethrow session
-	@echo "Recording a freethrow..."
+record_freethrows:
 	python $(prep_dir)/record_freethrows/record_freethrows.py
 
 
-# ----------------------------------------
-# Preprocessing freethrow videows 
-# ----------------------------------------
-preprocessing-header: ## ✂️  Preprocssing Videos
+# ----- Preprocessing -----
+preprocessing-header: ## ✂️  Preprocessing Videos
 	@:
 
-trim_freethrows_time: ## GUI to trim freethrows manually
-	@echo "Opening GUI to trim freethrows..."
+trim_freethrows_time:
 	python $(preprocessing_dir)/trim_freethrows_time.py
 
-trim_freethrows_frames: ## GUI to trim freethrows manually
-	@echo "Opening GUI to trim freethrows..."
+trim_freethrows_frames:
 	python $(preprocessing_dir)/trim_freethrows_frames.py
 
-combine_player_feeds: ## combine player feeds
-	@echo "Combining left and right player feeds..."
+combine_player_feeds:
 	python $(preprocessing_dir)/combine_player_feeds.py
 
-# ----------------------------------------
-# Helpers
-# ----------------------------------------
+
+# ----- Phase 1 Helpers -----
 helpers1-header: ## 👋 Helpers (Phase 1)
 	@:
 
-identify_cameras: ## Camera identification GUI
-	@echo "Opening GUI to identify camera indices..."
-	python $(helpers_dir)/identify_cameras.py
+identify_cameras:
+	python $(helpers1_dir)/identify_cameras.py
+
+
 
 # ======================================== 
-# Phase 2: Extract player and ball metrics
+# PHASE 2 — PLAYER + BALL METRICS
 # ========================================
 divider3-header: ## -------------------------------------
 	@:
-phase2-header: ## PHASE 2 SCRIPTS 
+phase2-header: ## PHASE 2 SCRIPTS
 	@:
 divider4-header: ## -------------------------------------
 	@:
 
-# ----------------------------------------
-# Paths and Directories  
-# ----------------------------------------
-extract_dir := scripts/02_metric_extraction
+# Directories
+extract_dir := $(SRC)/02_metric_extraction
 ball_dir := $(extract_dir)/ball_tracking
 metrics_dir := $(ball_dir)/metrics
 player_dir := $(extract_dir)/player_tracking
 helpers2_dir := $(extract_dir)/helpers
 summary_dir := $(extract_dir)/summary_builder
 
-# ----------------------------------------
-# Player Tracking
-# ----------------------------------------
+
+# ----- Player Tracking -----
 player-header: ## ⛹️  Player Tracking
 	@:
 
-extract_2d_keypoints: ## Extract 2D keypoints from videos
+extract_2d_keypoints:
 	python $(player_dir)/extract_2d_keypoints.py
 
-extract_3d_keypoints: ## Triangulate 3D keypoints from 2D keypoints
+extract_3d_keypoints:
 	python $(player_dir)/extract_3d_keypoints.py
 
-compute_3d_angles: ## Compute 3D angles from 3D keypoints
+compute_3d_angles:
 	python $(player_dir)/compute_3d_angles.py
 
-compute_3d_vel_acc: ## Compute 3D velocity and acceleration from 3D keypoints
+compute_3d_vel_acc:
 	python $(player_dir)/compute_3d_vel_acc.py
 
-draw_2d_keypoints: ## Draw 2D keypoints onto videos
+draw_2d_keypoints:
 	python $(player_dir)/draw_2d_keypoints.py
 
-verify_stereo_accuracy: ## Ensure proper triangulation
+verify_stereo_accuracy:
 	python $(player_dir)/verify_stereo_accuracy.py
 
-split_phases: ## Detect motion phases
+split_phases:
 	python $(player_dir)/split_phases.py
 
-label_phases_gui: ## Manually label phases
+label_phases_gui:
 	python $(player_dir)/label_phases_gui.py
 
-# ----------------------------------------
-# Ball Tracking
-# ----------------------------------------
+
+# ----- Ball Tracking -----
 ball-header: ## 🏀 Ball Tracking
 	@:
 
-detect_makes: ## Detect ball metrics
+detect_makes:
 	python $(ball_dir)/detect_makes.py
 
-detect_makes_gui: ## Detect ball metrics
+detect_makes_gui:
 	python $(ball_dir)/detect_makes_gui.py
 
-simple_mog2: ## Detect ball metrics
+simple_mog2:
 	python $(ball_dir)/simple_mog2.py
 
-create_hoop_regions: ## Create hoop detection regions
+create_hoop_regions:
 	python $(ball_dir)/create_hoop_regions.py
 
-tune_ball_detection: ## Tune HSV, circularity, and size thresholds for ball detection
+tune_ball_detection:
 	python $(ball_dir)/tune_ball_detection.py
 
-# ----------------------------------------
-# Summary Builder
-# ----------------------------------------
+
+# ----- Summary Builder -----
 summary-header: ## 🧮 Summary Builder
 	@:
 
-combine_release_summaries: ## Combine release summaries
+combine_release_summaries:
 	python $(summary_dir)/combine_release_summaries.py
 
-# ----------------------------------------
-# Helpers
-# ----------------------------------------
+
+# ----- Phase 2 Helpers -----
 helpers2-header: ## 👋 Helpers (Phase 2)
 	@:
 
-combine_releases: ## Process release data into single CSV
+combine_releases:
 	python $(helpers2_dir)/combine_releases.py
 
+
+
 # ======================================== 
-# Phase 3: Analyze Data
+# PHASE 3 — ANALYSIS & MODELING
 # ========================================
 divider5-header: ## -------------------------------------
 	@:
@@ -232,67 +209,41 @@ phase3-header: ## PHASE 3 SCRIPTS
 divider6-header: ## -------------------------------------
 	@:
 
-# ----------------------------------------
-# Paths and Directories 
-# ----------------------------------------
-feature_engineering_dir := scripts/03_analysis_and_modeling/feature_engineering
-exploratory_analysis_dir := scripts/03_analysis_and_modeling/exploratory_analysis
-train_models_dir := scripts/03_analysis_and_modeling/train_models
-evaluation_dir := scripts/03_analysis_and_modeling/evaluation
+# Directories
+analysis_dir := $(SRC)/03_analysis_and_modeling
+feature_engineering_dir := $(analysis_dir)/feature_engineering
+exploratory_analysis_dir := $(analysis_dir)/exploratory_analysis
+train_models_dir := $(analysis_dir)/train_models
+evaluation_dir := $(analysis_dir)/evaluation
 
-# ----------------------------------------
-# Feature Engineering 
-# ----------------------------------------
+
+# ----- Feature Engineering -----
 feature-engineering-header: ## 🛠 Feature Engineering
 	@:
 
-extract_phase_features: ## Extract features from phases
-	@echo "Extracting features from phases..."
+extract_phase_features:
 	python $(feature_engineering_dir)/extract_phase_features.py
 
-extract_phase_features_time_series: ## Extract time series features from phases
-	@echo "Extracting features from phases..."
+extract_phase_features_time_series:
 	python $(feature_engineering_dir)/extract_phase_features_time_series.py
 
-prepare_phase_dataset: ## Merge features and labels for analysis 
-	@echo "Merging features.csv and outcomes.csv..."
+prepare_phase_dataset:
 	python $(feature_engineering_dir)/prepare_phase_dataset.py
 
-detect_outliers: ## Extract time series features from phases
-	@echo "computing outliers from merged.csvs..."
+detect_outliers:
 	python $(feature_engineering_dir)/detect_outliers.py --roots data --glob "**/merged.csv"
 
 
-# ----------------------------------------
-# Exploratory Analysis 
-# ----------------------------------------
-exploratory-analysis-header: ## 🛠 Exploratory Analysis 
-	@:
-
-# ----------------------------------------
-# Train Models
-# ----------------------------------------
+# ----- Train Models -----
 train-header: ## 📊 Train Models
 	@:
 
-training: ## Train ML models with CV
-	@echo "Training phase models for $(ATHLETE) / $(SESSION) with cross-validation..."
-	./scripts/03_analysis_and_modeling/train_models/training.sh $(ATHLETE) $(SESSION)
+training:
+	./$(train_models_dir)/training.sh $(ATHLETE) $(SESSION)
 
-# ----------------------------------------
-# Evaluation
-# ----------------------------------------
-evaluation-header: ## 🛠 Evaluation 
-	@:
-
-# ----------------------------------------
-# Helpers (phase 3)
-# ----------------------------------------
-helpers3-header: ## 👋 Helpers (Phase 3)
-	@:
 
 # ======================================== 
-# Utilities
+# UTILITIES
 # ========================================
 divider7-header: ## -------------------------------------
 	@:
@@ -301,29 +252,20 @@ util-header: ## UTILITIES
 divider8-header: ## -------------------------------------
 	@:
 
-# ----------------------------------------
-# Paths and Directories  
-# ----------------------------------------
-util_dir := utils
+util_dir := $(SRC)/utils
 
+video_player:
+	python $(util_dir)/video_player.py
 
-util1-header: ## 🛠 Utilities
-	@: 
-
-play_avi_videos: ## GUI for interacting with AVI videos in a folder
-	@echo "Opening GUI to interact with AVI videos..."
-	python $(util_dir)/play_avi_videos.py
-
-project_gui: ## GUI for viewing 3D data
-	@echo "Opening 3D viewer GUI..."
+project_gui:
 	python $(util_dir)/project_gui.py
 
-real_time_display: ## GUI for displaying live joint angles
-	@echo "Opening real time display GUI..."
+real_time_display:
 	python $(util_dir)/real_time_display.py
-# ======================================== 
-# clean 
-# ========================================
 
+
+# ======================================== 
+# CLEAN
+# ========================================
 clean:
 	@echo "Cleaning output files..."
