@@ -45,7 +45,7 @@ divider2-header: ## -------------------------------------
 	@:
 
 # Directories
-prep_dir := $(SRC)/01_data_preparation
+prep_dir := $(SRC)/pipeline/01_collection
 calibrate_dir := $(prep_dir)/player_calibration
 preprocessing_dir := $(prep_dir)/video_preprocessing
 helpers1_dir := $(prep_dir)/helpers
@@ -111,6 +111,9 @@ helpers1-header: ## 👋 Helpers (Phase 1)
 
 identify_cameras:
 	python $(helpers1_dir)/identify_cameras.py
+
+verify_res_fps:
+	python $(helpers1_dir)/verify_res_fps.py
 
 
 

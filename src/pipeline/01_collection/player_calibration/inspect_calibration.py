@@ -85,7 +85,7 @@ def _sampson_errors(F, pts1, pts2):
     return num / np.maximum(den, 1e-12)
 
 def assess_calibration(K1, dist1, K2, dist2, R, T, F,
-                       image_paths, checkerboard_size, square_size_cm,
+                       image_paths, checkerboard_size, square_size_in,
                        image_size, max_pairs=5):
     """
     Probe mono & stereo quality on a few checkerboard pairs and print a verdict.
@@ -95,7 +95,7 @@ def assess_calibration(K1, dist1, K2, dist2, R, T, F,
     # 3D board points (units: cm to match your calibration)
     objp = np.zeros((cols*rows, 3), np.float32)
     objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2)
-    objp *= float(square_size_cm)
+    objp *= float(square_size_in)
 
     # Intrinsic heuristics
     w, h = image_size
@@ -198,10 +198,10 @@ map1_R, map2_R = cv.initUndistortRectifyMap(K2, dist2, R2, P2_rect, image_size, 
 
 # ============== NEW: Quality assessment ==============
 CHECKERBOARD_SIZE = tuple(cfg["inner_corners"])
-SQUARE_SIZE_CM = cfg["square_size_cm"]
+square_size_in = cfg["square_size_in"]
 _ = assess_calibration(
     K1, dist1, K2, dist2, R, T, F,
-    combined_images, CHECKERBOARD_SIZE, SQUARE_SIZE_CM,
+    combined_images, CHECKERBOARD_SIZE, square_size_in,
     image_size=image_size, max_pairs=NUM_PREVIEW_IMAGES
 )
 

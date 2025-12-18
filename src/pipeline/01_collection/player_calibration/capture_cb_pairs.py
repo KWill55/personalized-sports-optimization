@@ -28,7 +28,6 @@ from pathlib import Path
 import threading
 import time
 import yaml
-from pathlib import Path
 import numpy as np
 
 
@@ -37,7 +36,7 @@ import numpy as np
 # ========================================
 
 # Load YAML Config
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+config_path = Path(__file__).resolve().parents[4] / "project_config.yaml"
 with open(config_path, "r") as f:
     project_cfg = yaml.safe_load(f)
 
@@ -48,14 +47,32 @@ SESSION = project_cfg["session"]
 # Camera Parameters
 CAM_LEFT_INDEX = project_cfg["left_cam_index"]
 CAM_RIGHT_INDEX = project_cfg["right_cam_index"]
-CAM_RESOLUTION = (project_cfg["original_frame_width"], project_cfg["original_frame_height"])  # (1280, 720)
-CROP_RESOLUTION = tuple(project_cfg["crop_size"])  # (640, 640)
+CAM_RESOLUTION = tuple(project_cfg["uncropped_stereo_resolution"])  # (1280, 720)
+CROP_RESOLUTION = tuple(project_cfg["cropped_stereo_resolution"])  # (720, 720)
 PLAYER_TRACKING_FPS = project_cfg["player_tracking_fps"]
 
 # Calibration Parameters
 CHECKERBOARD = tuple(project_cfg["inner_corners"])  # (columns, rows)
 # MIN_SQUARE_PX = cfg["min_square_px"] # usually 40px
 MIN_SQUARE_PX = 5 # yes I know this is way too small. 
+
+# ========================================
+# Helpers
+# ========================================
+def crop_center(frame, crop_size):
+    """Center-crop frame to the configured crop_size (width, height)."""
+    crop_w, crop_h = crop_size
+    h, w = frame.shape[:2]
+    if crop_w >= w and crop_h >= h:
+        return frame
+
+    crop_w = min(crop_w, w)
+    crop_h = min(crop_h, h)
+    x1 = max(0, (w - crop_w) // 2)
+    y1 = max(0, (h - crop_h) // 2)
+    x2 = x1 + crop_w
+    y2 = y1 + crop_h
+    return frame[y1:y2, x1:x2]
 
 # ========================================
 # Paths and Directories
@@ -105,9 +122,6 @@ class StereoCaptureGUI:
         existing = list(calib_dir.glob("pair_*.png"))
         return len(existing) + 1
 
-    def crop_center(self, frame):
-        return frame[40:680, 320:960]  # center crop to 640x640
-
     def show_status(self, text, color):
         self.status_text = text
         self.status_color = color
@@ -121,8 +135,8 @@ class StereoCaptureGUI:
                 continue
 
             # Crop and combine the two images 
-            frameL = self.crop_center(self.left_cam.frame)
-            frameR = self.crop_center(self.right_cam.frame)
+            frameL = crop_center(self.left_cam.frame, CROP_RESOLUTION)
+            frameR = crop_center(self.right_cam.frame, CROP_RESOLUTION)
             combined = cv.hconcat([frameL, frameR])
 
             # Overlay text
@@ -226,4 +240,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

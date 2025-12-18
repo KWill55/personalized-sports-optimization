@@ -28,6 +28,7 @@ from typing import List, Tuple
 import cv2 as cv
 import numpy as np
 import yaml
+import sys
 
 
 # =========================
@@ -53,12 +54,17 @@ class Extrinsics:
 # =========================
 # Configuration & IO
 # =========================
-def load_config() -> dict:
-    config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
-    with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f)
-    return cfg
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+_SRC_DIR = PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.append(str(_SRC_DIR))
 
+from utils.io_utils import load_config
+
+# =========================
+# Config (from YAML)
+# =========================
+cfg = load_config("project_config.yaml")
 
 def get_paths(cfg: dict) -> Tuple[Path, Path, Path, Path, Path]:
     """
@@ -345,7 +351,7 @@ def main():
     # Configuration
     project_cfg = load_config()
     CHECKERBOARD_SIZE = tuple(project_cfg["inner_corners"])   # (cols, rows) — INNER corners
-    SQUARE_SIZE       = float(project_cfg["square_size_cm"])  # e.g., cm
+    SQUARE_SIZE       = float(project_cfg["square_size_in"])  # e.g., cm
     mono_left_dir, mono_right_dir, stereo_combined_dir, output_dir, _ = get_paths(project_cfg)
     output_file = output_dir / "stereo_calib.npz"
     out_yaml    = output_dir / "stereo_calib_summary.yaml"

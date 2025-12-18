@@ -16,7 +16,7 @@ SESSION = cfg["session"]
 
 # Checkerboard parameters
 CHECKER_SIZE = cfg["inner_corners"]   # (cols, rows)
-SQUARE_SIZE  = cfg["square_size_cm"]  # same units as used in calibration (e.g., mm)
+SQUARE_SIZE  = cfg["square_size_in"]  # same units as used in calibration (e.g., mm)
 
 # ==========================================================
 # PATHS
