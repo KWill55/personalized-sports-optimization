@@ -61,7 +61,7 @@ BORDER_COLORS = {"left": "red", "right": "blue", "ball": "green"}
 BORDER_THICKNESS = 5
 
 PAD_WIDTH = int(cfg.get("throw_number_width", 3))  # zero-pad to 3 digits
-NAME_PREFIX = "batch"
+NAME_PREFIX = "freethrow"
 
 try:
     CROP_W, CROP_H = map(int, STEREO_CROP_RES)

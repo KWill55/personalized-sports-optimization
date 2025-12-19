@@ -71,7 +71,8 @@ def get_paths(cfg: dict) -> Tuple[Path, Path, Path, Path, Path]:
     Returns:
         calib_mono_left_dir, calib_mono_right_dir, calib_pairs_dir, output_dir, session_dir
     """
-    base_dir = Path(__file__).resolve().parents[3]
+    # Use the project root (../.. from src) so we don't accidentally look under src/data
+    base_dir = PROJECT_ROOT
     session_dir = base_dir / "data" / cfg["athlete"] / cfg["session"]
 
     mono_left_dir       = session_dir / "calibration" / "calib_images" / "mono_left"
