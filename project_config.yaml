@@ -1,6 +1,6 @@
 # Session Information
-athlete: "kenny_williams" 
-session: "session_2025-12-17" 
+athlete: "tyler_haws" 
+session: "session_2025-10-9" 
 
 # Stereo Calibration Parameters
 inner_corners: [10,7] # inner corners (columns, rows)
@@ -21,6 +21,10 @@ ball_tracking_fps: 30
 left_cam_index: 0
 right_cam_index: 1
 ball_cam_index: 3 
+
+# Naming conventions 
+freethrow_name_prefix: "freethrow"
+
 
 
 # Detection Thresholds
@@ -78,4 +82,3 @@ paths:
   experiments: "experiments"
   feature_sets: "experiments/feature_sets"
   runs: "experiments/runs"
-

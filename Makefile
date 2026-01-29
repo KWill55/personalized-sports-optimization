@@ -128,7 +128,7 @@ divider4-header: ## -------------------------------------
 	@:
 
 # Directories
-extract_dir := $(SRC)/02_metric_extraction
+extract_dir := $(SRC)/pipeline/02_extraction
 ball_dir := $(extract_dir)/ball_tracking
 metrics_dir := $(ball_dir)/metrics
 player_dir := $(extract_dir)/player_tracking

@@ -18,7 +18,7 @@ import yaml
 # Config
 # ========================================
 
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+config_path = Path(__file__).resolve().parents[4] / "project_config.yaml"
 with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
@@ -28,7 +28,8 @@ SESSION = config["session"]
 # ========================================
 # Paths
 # ========================================
-base_dir = Path(__file__).resolve().parents[3]
+# Anchor at project root so we look under data/, not src/data.
+base_dir = Path(__file__).resolve().parents[4]
 session_dir = base_dir / "data" / ATHLETE / SESSION
 videos_dir = session_dir / "videos"
 metrics_dir = session_dir / "metrics"
@@ -167,6 +168,7 @@ class KeypointSaver:
 # Main
 # ========================================
 if __name__ == "__main__":
+    print("Begin Processing")
     for video_path in sorted(input_video_dir.glob("*.avi")):
         print(f"Processing {video_path.name}...")
 

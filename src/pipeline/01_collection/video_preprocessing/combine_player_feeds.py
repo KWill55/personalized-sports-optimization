@@ -2,19 +2,18 @@
 Title: combine_player_feeds.py
 
 Description: 
-    This module's purpose is to combine player tracking feeds from two cameras into a single video feed.
-    It combines two 640x640 videos into a single 1280x640 video for player tracking. 
-    The combined video is saved in a structurured directory. 
+    Combine the cropped player-tracking feeds from the left/right cameras into
+    a single side-by-side video. Output dimensions are driven by the cropped
+    stereo resolution from project_config.yaml.
 
 Inputs:
-    - Left and right player tracking videos (each 640x640)
+    - Left and right player tracking videos (cropped stereo resolution)
 
 Usage:
     - Running the script combines the two player feeds into a single video feed. 
 
 Outputs
-    - 1280x640 videos for player tracking:
-        - side by side stereo feeds (each 640x640)
+    - Side-by-side stereo feeds of size (2 * cropped_width, cropped_height)
 """
 
 import cv2 as cv
@@ -26,27 +25,40 @@ import yaml
 # =========================
 # Config
 # =========================
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+config_path = PROJECT_ROOT / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
 ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
+NAME_PREFIX = cfg.get("freethrow_name_prefix", "freethrow")
+PATHS_CFG = cfg.get("paths", {})
+
+STEREO_CROP_RES = tuple(int(v) for v in cfg.get("cropped_stereo_resolution", cfg["uncropped_stereo_resolution"]))
+CROP_WIDTH, CROP_HEIGHT = STEREO_CROP_RES
+COMBINED_WIDTH = CROP_WIDTH * 2
+COMBINED_HEIGHT = CROP_HEIGHT
+
+
+def cfg_path(key: str) -> Path:
+    """Resolve a path from project_config.yaml paths section."""
+    try:
+        template = PATHS_CFG[key]
+    except KeyError as exc:
+        raise KeyError(f"Missing '{key}' in project_config.yaml paths") from exc
+    return PROJECT_ROOT / Path(template.format(athlete=ATHLETE, session=SESSION))
+
 
 # =========================
 # Paths and Directories 
 # =========================
-base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
-
-# Input video directories 
 input_video_dirs = {
-    "left": session_dir / "videos" / "player_tracking" / "raw" / "left",
-    "right": session_dir / "videos" / "player_tracking" / "raw" / "right",
+    "left": cfg_path("player_tracking_left"),
+    "right": cfg_path("player_tracking_right"),
 }
 
-# Output video directory 
-output_video_dir = session_dir / "videos" / "player_tracking" / "synchronized"
+output_video_dir = cfg_path("player_tracking_sync")
 output_video_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -55,16 +67,16 @@ output_video_dir.mkdir(parents=True, exist_ok=True)
 # =========================
 def get_matching_video_pairs(left_dir, right_dir):
     
-    # Match freethrow files like freethrow1.avi, freethrow2.avi, etc.
-    pattern = re.compile(r"freethrow(\d+)\.avi")
-    left_files = sorted(left_dir.glob("freethrow*.avi"))
+    # Match files like {NAME_PREFIX}001.avi, {NAME_PREFIX}002.avi, etc.
+    pattern = re.compile(rf"^{re.escape(NAME_PREFIX)}(\d+)$")
+    left_files = sorted(left_dir.glob(f"{NAME_PREFIX}*.avi"))
 
     matches = []
     for lf in left_files:
-        match = pattern.match(lf.name)
+        match = pattern.match(lf.stem)
         if match:
-            num = match.group(1)
-            rf = right_dir / f"freethrow{num}.avi"
+            num = match.group(1)  # Preserve leading zeros
+            rf = right_dir / f"{NAME_PREFIX}{num}.avi"
             if rf.exists():
                 matches.append((lf, rf))
     return matches
@@ -75,9 +87,20 @@ def get_matching_video_pairs(left_dir, right_dir):
 # =========================
 def combine_videos():
 
+    left_dir = input_video_dirs["left"]
+    right_dir = input_video_dirs["right"]
+
+    if not left_dir.exists() or not right_dir.exists():
+        print(f"[ERROR] Input directories missing:\n  left:  {left_dir}\n  right: {right_dir}")
+        print("Ensure record_freethrows.py has saved the raw feeds before combining.")
+        return
+
     # Match left/right video pairs
-    pairs = get_matching_video_pairs(input_video_dirs["left"], input_video_dirs["right"])
+    pairs = get_matching_video_pairs(left_dir, right_dir)
     print(f"Found {len(pairs)} matching left/right video pairs.")
+    if not pairs:
+        print(f"[WARNING] No files starting with '{NAME_PREFIX}' were found in {left_dir}.")
+        return
     
     for left_path, right_path in pairs:
         print(f"Combining {left_path.name} and {right_path.name}...")
@@ -88,32 +111,36 @@ def combine_videos():
 
         # Get video properties from left
         fps = left_cap.get(cv.CAP_PROP_FPS)
+        if fps <= 0:
+            fps = float(cfg.get("player_tracking_fps", 60))
 
         left_width = int(left_cap.get(cv.CAP_PROP_FRAME_WIDTH))
         left_height = int(left_cap.get(cv.CAP_PROP_FRAME_HEIGHT))
         right_width = int(right_cap.get(cv.CAP_PROP_FRAME_WIDTH))
         right_height = int(right_cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
-        # Ensure both videos are 640x640
-        if (left_width, left_height) != (640, 640):
-            print(f"❌ ERROR: {left_path.name} is {left_width}x{left_height}, expected 640x640")
+        expected_size = (CROP_WIDTH, CROP_HEIGHT)
+
+        # Ensure both videos match configured crop size
+        if (left_width, left_height) != expected_size:
+            print(f"❌ ERROR: {left_path.name} is {left_width}x{left_height}, expected {expected_size}")
             left_cap.release()
             right_cap.release()
             continue
 
-        if (right_width, right_height) != (640, 640):
-            print(f"❌ ERROR: {right_path.name} is {right_width}x{right_height}, expected 640x640")
+        if (right_width, right_height) != expected_size:
+            print(f"❌ ERROR: {right_path.name} is {right_width}x{right_height}, expected {expected_size}")
             left_cap.release()
             right_cap.release()
             continue
 
-        # If valid, proceed with 1280x640 output
-        combined_width = 1280
-        combined_height = 640
+        # If valid, proceed with combined output
+        combined_width = COMBINED_WIDTH
+        combined_height = COMBINED_HEIGHT
 
 
         # Setup output path
-        output_name = left_path.name  # e.g. freethrow1.avi
+        output_name = left_path.name  # e.g. freethrow001.avi
         output_path = output_video_dir / output_name
         fourcc = cv.VideoWriter_fourcc(*'MJPG')
         out = cv.VideoWriter(str(output_path), fourcc, fps, (combined_width, combined_height))

@@ -25,7 +25,8 @@ import yaml
 # Config
 # ========================================
 
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+config_path = PROJECT_ROOT / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
@@ -62,12 +63,19 @@ LANDMARK_NAMES = [
 # Paths and Parameters
 # ========================================
 
-base_dir = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
+paths_cfg = cfg.get("paths", {})
 
-videos_dir = session_dir / "videos/player_tracking/synchronized"
-keypoints_dir = session_dir / "metrics/2d_keypoints"
-output_dir = session_dir / "videos/player_tracking/2d"
+def cfg_path(key: str) -> Path:
+    """Resolve a configured path relative to project root."""
+    try:
+        template = paths_cfg[key]
+    except KeyError as exc:
+        raise KeyError(f"Missing '{key}' in project_config.yaml paths") from exc
+    return PROJECT_ROOT / Path(template.format(athlete=ATHLETE, session=SESSION))
+
+videos_dir = cfg_path("player_tracking_sync")
+keypoints_dir = cfg_path("keypoints_2d")
+output_dir = cfg_path("player_tracking_2d")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================

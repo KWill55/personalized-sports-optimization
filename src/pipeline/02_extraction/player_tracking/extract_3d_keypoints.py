@@ -10,22 +10,28 @@ import yaml
 # ========================================
 # Config
 # ========================================
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+config_path = PROJECT_ROOT / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
 ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
+paths_cfg = cfg.get("paths", {})
+
+def cfg_path(key: str) -> Path:
+    try:
+        template = paths_cfg[key]
+    except KeyError as exc:
+        raise KeyError(f"Missing '{key}' in project_config.yaml paths") from exc
+    return PROJECT_ROOT / Path(template.format(athlete=ATHLETE, session=SESSION))
 
 # ========================================
 # Paths
 # ========================================
-base_dir   = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
-
-calib_path = session_dir / "calibration" / "stereo_calibration" / "stereo_calib.npz"
-kps_dir    = session_dir / "metrics" / "2d_keypoints"       
-out_dir    = session_dir / "metrics" / "3d_keypoints"
+calib_path = cfg_path("stereo_calibration") / "stereo_calib.npz"
+kps_dir    = cfg_path("keypoints_2d")
+out_dir    = cfg_path("keypoints_3d")
 out_dir.mkdir(parents=True, exist_ok=True)
 
 # ========================================

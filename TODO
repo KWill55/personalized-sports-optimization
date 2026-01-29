@@ -1,8 +1,16 @@
 IMPROVING EXISTING CODE
-
+* standardize naming within data 
+* standardize the pipeline and simplify 
 
 NEW ADDITIONS 
-* automate ball phases through horizontal line. 
-    * how can i figure out what the start frame should be? does it matter as much?
-    * end of crop is once ball drops below a certain line (bottom of net) after getting above that line for some duration of time
+* automate marking freethrow phases through keypoint, angle, and ball trajectory signals 
+* create jupyter notebook for comparing multiple athlete's form 
+* add ML in addition to standard deviations off from golden template to find what determines makes and misses 
+
+PROCESSING DATA
+* try processing data without phases to see if data aligns still 
+* process new free throws from greg and dr lee
+* compare their data to their own to see how consistent they shoot 
+* compare their data to Tyler's free throws (golden template) 
+   
 

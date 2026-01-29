@@ -8,32 +8,38 @@ Input  : data/<ATHLETE>/<SESSION>/metrics/3d_keypoints/*_3d.csv
 Output : data/<ATHLETE>/<SESSION>/metrics/angles/<same>_angles.csv
 
 Angles:
-  - elbow_flex_l/r     = angle at elbow  (shoulder–elbow–wrist)
-  - shoulder_flex_l/r  = angle at shoulder (hip–shoulder–elbow)
-  - hip_flex_l/r       = angle at hip (shoulder–hip–knee)    [proxy]
-  - knee_flex_l/r      = angle at knee (hip–knee–ankle)
-  - ankle_flex_l/r     = angle at ankle (knee–ankle–foot_index)
+  - elbow_flex_l/r     = angle at elbow  (shoulder-elbow-wrist)
+  - shoulder_flex_l/r  = angle at shoulder (hip-shoulder-elbow)
+  - hip_flex_l/r       = angle at hip (shoulder-hip-knee)    [proxy]
+  - knee_flex_l/r      = angle at knee (hip-knee-ankle)
+  - ankle_flex_l/r     = angle at ankle (knee-ankle-foot_index)
 """
 
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import glob
 import yaml
 import re
 
 # ---------- config / paths ----------
-cfg_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+cfg_path = PROJECT_ROOT / "project_config.yaml"
 with open(cfg_path, "r") as f:
     cfg = yaml.safe_load(f)
 
 ATHLETE = cfg["athlete"]
 SESSION = cfg["session"]
+paths_cfg = cfg.get("paths", {})
 
-base_dir    = Path(__file__).resolve().parents[3]
-session_dir = base_dir / "data" / ATHLETE / SESSION
-in_dir      = session_dir / "metrics" / "3d_keypoints"
-out_dir     = session_dir / "metrics" / "3d_angles"
+def cfg_path_resolve(key: str) -> Path:
+    try:
+        template = paths_cfg[key]
+    except KeyError as exc:
+        raise KeyError(f"Missing '{key}' in project_config.yaml paths") from exc
+    return PROJECT_ROOT / Path(template.format(athlete=ATHLETE, session=SESSION))
+
+in_dir  = cfg_path_resolve("keypoints_3d")
+out_dir = cfg_path_resolve("angles")
 out_dir.mkdir(parents=True, exist_ok=True)
 
 # optional light smoothing (set 0 to disable)
