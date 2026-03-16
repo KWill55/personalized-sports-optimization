@@ -15,6 +15,7 @@ __pycache__/
 *.json
 *.txt
 *.joblib
+*.pyc
 
 !images/
 !images/**
