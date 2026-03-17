@@ -162,12 +162,17 @@ class KeypointVisualizer:
 # ========================================
 if __name__ == "__main__":
     visualizer = KeypointVisualizer()
+    overwrite_existing = bool(cfg.get("overwrite_existing_outputs", False))
 
     for video_path in sorted(videos_dir.glob("*.avi")):
         stem = video_path.stem  # e.g., freethrow1
         left_csv = keypoints_dir / f"{stem}_left_2d.csv"
         right_csv = keypoints_dir / f"{stem}_right_2d.csv"
         output_path = output_dir / f"{stem}_2d.avi"
+
+        if output_path.exists() and not overwrite_existing:
+            print(f"⏭️  Skipping {video_path.name}: annotated output already exists")
+            continue
 
         if left_csv.exists() and right_csv.exists():
             print(f"Processing {video_path.name}...")

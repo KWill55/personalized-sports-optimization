@@ -1,84 +1,62 @@
-# Session Information
-athlete: "tyler_haws" 
-session: "session_2025-10-9" 
-
-# Stereo Calibration Parameters
-inner_corners: [10,7] # inner corners (columns, rows)
-square_size_in: 3.886 # size of a square in inches
-
-success_window: 50         # Rolling detection success window
+athlete: tyler_haws
+session: session_2025-10-9
+inner_corners:
+- 10
+- 7
+square_size_in: 3.886
+success_window: 50
 min_square_px: 40
-
-# Video Parameters
-uncropped_stereo_resolution: [1280, 720] # (width, height)
-cropped_stereo_resolution: [720, 720] # (width, height)
+uncropped_stereo_resolution:
+- 1280
+- 720
+cropped_stereo_resolution:
+- 720
+- 720
 player_tracking_fps: 60
-
-uncropped_ball_resolution: [1280, 720] # (width, height)
+uncropped_ball_resolution:
+- 1280
+- 720
 ball_tracking_fps: 30
-
-# Camera Indices
 left_cam_index: 0
 right_cam_index: 1
-ball_cam_index: 3 
-
-# Naming conventions 
-freethrow_name_prefix: "freethrow"
-
-
-
-# Detection Thresholds
-threshold_detect: 0.7      # Success rate threshold for stability
-threshold_fl: 10           # Max allowed focal length diff (px)
-threshold_pp: 20           # Max allowed principal point diff (px)
-
-
+ball_cam_index: 3
+freethrow_name_prefix: freethrow
+threshold_detect: 0.7
+threshold_fl: 10
+threshold_pp: 20
 paths:
-  # Analysis
-  analysis: "data/{athlete}/{session}/analysis"
-  datasets: "data/{athlete}/{session}/analysis/datasets"
-  experiments: "data/{athlete}/{session}/analysis/datasets/experiments"
-  analysis_plots: "data/{athlete}/{session}/analysis/plots"
-  models: "data/{athlete}/{session}/analysis/models"
-
-  # Calibration
-  calibration: "data/{athlete}/{session}/calibration"
-  calib_images: "data/{athlete}/{session}/calibration/calib_images"
-  calib_pairs: "data/{athlete}/{session}/calibration/calib_images/pairs"
-  calib_mono_left: "data/{athlete}/{session}/calibration/calib_images/mono_left"
-  calib_mono_right: "data/{athlete}/{session}/calibration/calib_images/mono_right"
-  mono_intrinsics: "data/{athlete}/{session}/calibration/mono_intrinsics"
-  stereo_calibration: "data/{athlete}/{session}/calibration/stereo_calibration"
-
-  # Metrics
-  metrics: "data/{athlete}/{session}/metrics"
-  keypoints_2d: "data/{athlete}/{session}/metrics/2d_keypoints"
-  keypoints_3d: "data/{athlete}/{session}/metrics/3d_keypoints"
-  angles: "data/{athlete}/{session}/metrics/3d_angles"
-  shortened_angles: "experiments/"
-  velocities: "data/{athlete}/{session}/metrics/3d_velocities"
-  accelerations: "data/{athlete}/{session}/metrics/3d_accelerations"
-  ball_tracking_metrics: "data/{athlete}/{session}/metrics/ball_tracking_metrics"
-  phases: "data/{athlete}/{session}/metrics/freethrow_phases.csv"
-
-  #Features
-  features: "data/{athlete}/{session}/analysis/datasets/features"
-  summary_stats: "data/{athlete}/{session}/features/summary_stats"
-  time_series: "data/{athlete}/{session}/features/time_series"
-
-
-  # Videos
-  videos: "data/{athlete}/{session}/videos"
-  ball_tracking: "data/{athlete}/{session}/videos/ball_tracking"
-  ball_tracking_raw: "data/{athlete}/{session}/videos/ball_tracking/raw"
-  player_tracking: "data/{athlete}/{session}/videos/player_tracking"
-  player_tracking_2d: "data/{athlete}/{session}/videos/player_tracking/2d"
-  player_tracking_raw: "data/{athlete}/{session}/videos/player_tracking/raw"
-  player_tracking_left: "data/{athlete}/{session}/videos/player_tracking/raw/left"
-  player_tracking_right: "data/{athlete}/{session}/videos/player_tracking/raw/right"
-  player_tracking_sync: "data/{athlete}/{session}/videos/player_tracking/synchronized"
-
-  # Models 
-  experiments: "experiments"
-  feature_sets: "experiments/feature_sets"
-  runs: "experiments/runs"
+  analysis: data/{athlete}/{session}/analysis
+  datasets: data/{athlete}/{session}/analysis/datasets
+  experiments: experiments
+  analysis_plots: data/{athlete}/{session}/analysis/plots
+  models: data/{athlete}/{session}/analysis/models
+  calibration: data/{athlete}/{session}/calibration
+  calib_images: data/{athlete}/{session}/calibration/calib_images
+  calib_pairs: data/{athlete}/{session}/calibration/calib_images/pairs
+  calib_mono_left: data/{athlete}/{session}/calibration/calib_images/mono_left
+  calib_mono_right: data/{athlete}/{session}/calibration/calib_images/mono_right
+  mono_intrinsics: data/{athlete}/{session}/calibration/mono_intrinsics
+  stereo_calibration: data/{athlete}/{session}/calibration/stereo_calibration
+  metrics: data/{athlete}/{session}/metrics
+  keypoints_2d: data/{athlete}/{session}/metrics/2d_keypoints
+  keypoints_3d: data/{athlete}/{session}/metrics/3d_keypoints
+  angles: data/{athlete}/{session}/metrics/3d_angles
+  shortened_angles: experiments/
+  velocities: data/{athlete}/{session}/metrics/3d_velocities
+  accelerations: data/{athlete}/{session}/metrics/3d_accelerations
+  ball_tracking_metrics: data/{athlete}/{session}/metrics/ball_tracking_metrics
+  phases: data/{athlete}/{session}/metrics/freethrow_phases.csv
+  features: data/{athlete}/{session}/analysis/datasets/features
+  summary_stats: data/{athlete}/{session}/features/summary_stats
+  time_series: data/{athlete}/{session}/features/time_series
+  videos: data/{athlete}/{session}/videos
+  ball_tracking: data/{athlete}/{session}/videos/ball_tracking
+  ball_tracking_raw: data/{athlete}/{session}/videos/ball_tracking/raw
+  player_tracking: data/{athlete}/{session}/videos/player_tracking
+  player_tracking_2d: data/{athlete}/{session}/videos/player_tracking/2d
+  player_tracking_raw: data/{athlete}/{session}/videos/player_tracking/raw
+  player_tracking_left: data/{athlete}/{session}/videos/player_tracking/raw/left
+  player_tracking_right: data/{athlete}/{session}/videos/player_tracking/raw/right
+  player_tracking_sync: data/{athlete}/{session}/videos/player_tracking/synchronized
+  feature_sets: experiments/feature_sets
+  runs: experiments/runs

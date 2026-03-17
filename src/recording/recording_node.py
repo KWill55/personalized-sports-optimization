@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any, Dict
+
+# Support direct execution: python3 src/recording/recording_node.py
+SRC_ROOT = Path(__file__).resolve().parents[1]
+if str(SRC_ROOT) not in sys.path:
+    sys.path.append(str(SRC_ROOT))
 
 from recording.recording_capture_gui import RecordingCaptureGui
 from utils.io_utils import load_config

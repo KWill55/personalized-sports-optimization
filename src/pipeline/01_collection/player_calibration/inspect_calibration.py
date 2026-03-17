@@ -24,7 +24,7 @@ import glob
 import yaml
 
 # ====================== Config ======================
-config_path = Path(__file__).resolve().parents[3] / "project_config.yaml"
+config_path = Path(__file__).resolve().parents[4] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
@@ -34,9 +34,13 @@ SHOW_DISPARITY = True     # Set to False to skip disparity preview
 NUM_PREVIEW_IMAGES = 0    # How many image pairs to visualize/assess
 
 # ====================== Paths =======================
-base_dir = Path(__file__).resolve().parents[3]
+base_dir = Path(__file__).resolve().parents[4]
 session_dir = base_dir / "data" / ATHLETE / SESSION
-calib_file = session_dir / "calibration" / "stereo_calibration" / "stereo_calib_manual.npz"
+stereo_calib_dir = session_dir / "calibration" / "stereo_calibration"
+calib_file = stereo_calib_dir / "stereo_calib.npz"
+if not calib_file.exists():
+    fallback = stereo_calib_dir / "stereo_calib_manual.npz"
+    calib_file = fallback
 image_dir = session_dir / "calibration" / "calib_images"
 
 # ================== Load Calibration =================

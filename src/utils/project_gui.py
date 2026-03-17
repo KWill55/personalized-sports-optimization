@@ -863,8 +863,9 @@ class Skeleton3DWidget(tk.Frame):
         if self.global_R is not None and np.isfinite(self.global_R):
             return float(self.global_R)
 
-        # per-frame span, NaN-safe
-        span_vec = np.nanptp(Pc_frame, axis=0)  # (3,)
+        # per-frame span, NaN-safe.
+        # Use nanmax-nanmin for compatibility with NumPy builds lacking np.nanptp.
+        span_vec = np.nanmax(Pc_frame, axis=0) - np.nanmin(Pc_frame, axis=0)  # (3,)
         span = np.nanmax(span_vec)             # scalar
 
         # If all points were NaN or span invalid
