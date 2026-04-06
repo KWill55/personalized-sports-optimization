@@ -147,7 +147,7 @@ def _to_hand_only(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_side_pose_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
     side_video_dir = _format_path(cfg["paths"]["ball_tracking_raw"], cfg)
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     out_dir = metrics_dir / "side_pose_2d"
     compat_hands_dir = metrics_dir / "side_hand_tracking"
     out_dir.mkdir(parents=True, exist_ok=True)

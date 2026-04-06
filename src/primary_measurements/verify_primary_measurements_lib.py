@@ -317,7 +317,7 @@ class PrimaryMeasurementsVerificationGui:
         self.pose_vis_thresh = float(cfg.get("pose_visibility_threshold", 0.6))
         self.min_ball_conf = float(cfg.get("verification_min_ball_conf", 0.2))
 
-        self.metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+        self.metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
         self.analysis_dir = _format_path(cfg["paths"]["analysis"], cfg)
         self.left_dir = _format_path(cfg["paths"]["player_tracking_left"], cfg)
         self.right_dir = _format_path(cfg["paths"]["player_tracking_right"], cfg)

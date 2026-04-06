@@ -87,65 +87,8 @@ def _pick_release_frame(
     return int(np.clip(release, 0, n - 1))
 
 
-def _compute_phase_row(
-    base: str,
-    keypoints_df: pd.DataFrame,
-    angles_df: pd.DataFrame,
-    fps: float,
-    arm_up_min_deg: float = 110.0,
-) -> dict[str, Any]:
-    if "right_wrist_x" not in keypoints_df.columns or "right_wrist_y" not in keypoints_df.columns:
-        raise ValueError(f"{base}: missing right_wrist keypoint columns in 3D keypoint CSV")
-    if "elbow_flex_r" not in angles_df.columns:
-        raise ValueError(f"{base}: missing elbow_flex_r in 3D angle CSV")
-
-    n = min(len(keypoints_df), len(angles_df))
-    if n < 6:
-        raise ValueError(f"{base}: clip too short for phase detection ({n} frames)")
-
-    elbow = pd.to_numeric(angles_df["elbow_flex_r"], errors="coerce").to_numpy(dtype=float)[:n]
-    shoulder = (
-        pd.to_numeric(angles_df["shoulder_flex_r"], errors="coerce").to_numpy(dtype=float)[:n]
-        if "shoulder_flex_r" in angles_df.columns
-        else np.full(n, np.nan, dtype=float)
-    )
-    wrist_xyz = keypoints_df[["right_wrist_x", "right_wrist_y", "right_wrist_z"]].apply(
-        pd.to_numeric, errors="coerce"
-    ).to_numpy(dtype=float)[:n]
-
-    # Framewise 3D wrist speed in units/frame.
-    dxyz = np.diff(wrist_xyz, axis=0, prepend=wrist_xyz[[0], :])
-    wrist_speed = np.linalg.norm(dxyz, axis=1)
-    wrist_speed = _smooth(wrist_speed, 7)
-
-    release = _pick_release_frame(
-        elbow=elbow,
-        shoulder=shoulder,
-        wrist_speed=wrist_speed,
-        fps=fps,
-        arm_up_min_deg=arm_up_min_deg,
-    )
-
-    # Confidence still uses wrist acceleration salience.
-    med, scale, thr = _robust_threshold(wrist_speed, mult=2.5)
-    confidence = 0.0
-    if np.isfinite(scale) and scale > 0:
-        peak_z = (float(np.nanmax(wrist_speed)) - med) / scale
-        confidence = float(np.clip(peak_z / 6.0, 0.0, 1.0))
-
-    return {
-        "file": f"{base}.avi",
-        "raw_release_frame": int(release),
-        "release_method": "kinematic_elbow_peak_arm_up",
-        "phase_confidence": confidence,
-        "wrist_speed_threshold": float(thr),
-        "wrist_speed_peak": float(np.nanmax(wrist_speed)) if np.isfinite(wrist_speed).any() else np.nan,
-        "frames_total": int(n),
-    }
-
-
 def run_phases_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
     side_release_path = metrics_dir / "side_ball_release_frames.csv"
     side_pose_dir = metrics_dir / "side_pose_2d"
@@ -338,62 +281,13 @@ def _find_video_for_base(base: str, folder: Path | None) -> Path | None:
     return None
 
 
-def _resolve_reference_labels_path(cfg: dict[str, Any], metrics_dir: Path) -> Path | None:
-    configured = cfg.get("phase_reference_labels_path")
-    if configured:
-        p = Path(str(configured))
-        if not p.is_absolute():
-            p = PROJECT_ROOT / p
-        if p.exists():
-            return p
-
-    athlete = str(cfg.get("athlete", ""))
-    session = str(cfg.get("session", ""))
-    candidates = [
-        metrics_dir / "freethrow_phases_copy.csv",
-        metrics_dir / "freethrow_phases copy.csv",
-        PROJECT_ROOT / "data" / athlete / session / "primary_measurements" / "freethrow_phases_copy.csv",
-        PROJECT_ROOT / "data" / athlete / session / "primary_measurements" / "freethrow_phases copy.csv",
-        PROJECT_ROOT.parent / athlete / session / "metrics" / "freethrow_phases_copy.csv",
-        PROJECT_ROOT.parent / athlete / session / "metrics" / "freethrow_phases copy.csv",
-    ]
-    for p in candidates:
-        if p.exists():
-            return p
-    return None
-
-
-def _clip_release_frame(df: pd.DataFrame) -> pd.DataFrame:
-    out = df.copy()
-    for col in ("raw_release_frame", "raw_release_frame_stereo", "raw_release_frame_ball_cam", "frames_total"):
-        if col in out.columns:
-            out[col] = pd.to_numeric(out[col], errors="coerce")
-
-    for i in out.index:
-        max_frame = int(out.at[i, "frames_total"] - 1) if "frames_total" in out.columns and pd.notna(out.at[i, "frames_total"]) else 10**9
-        if "raw_release_frame_stereo" in out.columns and pd.notna(out.at[i, "raw_release_frame_stereo"]):
-            rf_st = int(np.clip(out.at[i, "raw_release_frame_stereo"], 0, max_frame))
-            out.at[i, "raw_release_frame_stereo"] = rf_st
-            out.at[i, "raw_release_frame"] = rf_st
-        else:
-            rf = int(np.clip(out.at[i, "raw_release_frame"], 0, max_frame)) if pd.notna(out.at[i, "raw_release_frame"]) else 0
-            out.at[i, "raw_release_frame"] = rf
-            out.at[i, "raw_release_frame_stereo"] = rf
-
-    out["raw_release_frame"] = out["raw_release_frame"].astype(int)
-    out["raw_release_frame_stereo"] = out["raw_release_frame_stereo"].astype(int)
-    if "raw_release_frame_ball_cam" in out.columns:
-        out["raw_release_frame_ball_cam"] = pd.to_numeric(out["raw_release_frame_ball_cam"], errors="coerce").fillna(0).astype(int)
-    return out
-
-
 def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
     import cv2
     import matplotlib.pyplot as plt
     from matplotlib.gridspec import GridSpec
     from matplotlib.widgets import Button, RadioButtons
 
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
     keypoints_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
     angles_dir = _format_path(cfg["paths"]["angles"], cfg)

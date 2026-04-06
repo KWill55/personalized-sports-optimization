@@ -257,14 +257,15 @@ def main():
 
                 print("\nShared Utils:") 
                 print("  - view cameras")
-                print("  - view images")
+                print("  - view images (not implemented yet)")
                 print("  - view videos")
                 print("  - view project")
 
                 print("\nCalibration:") 
-                print("  1. record calibration images | view calibration images") 
-                print("  2. calibrate ")
-                print("  3. verify calibration")
+                print("  1. setup cameras")
+                print("  2. record calibration images | view calibration images") 
+                print("  3. calibrate ")
+                print("  4. verify calibration")
 
                 print("\nRecording Free Throws:") 
                 print("  1. record new") 
@@ -285,13 +286,13 @@ def main():
 
                 print("\nCompute Secondary Measurements:") 
                 print("  - compute 3d angles") 
-                print("  verify secondary measurements gui")
+                print("  verify secondary measurements gui (not implemented yet)")
 
                 print("\nEvaluation:") 
-                print("  - summarize data")
+                print("  - summarize data (not implemented yet)")
                 print("  - shot consistency")
                 print("  - golden template comparison")
-                print("  - real-time feedback gui")
+                print("  - real-time feedback gui (not implemented yet)")
 
             elif (command == "create athlete"):
                 new_athlete = input("Enter new athlete name: ").strip()
@@ -359,9 +360,13 @@ def main():
                 _refresh_node_configs(cfg, config_nodes)
                 print(f"\nSet session to '{picked}' and updated project config.")
             
-            elif (command == "view cameras"):
+            elif (command in ("view cameras", "identify cameras")):
                 print("\nOpening camera identifier...")
-                _run_python_script(Path("src/identify_cameras.py"))
+                _run_python_script(Path("src/utils/identify_cameras.py"))
+
+            elif (command in ("setup cameras", "camera setup", "setup camera")):
+                print("\nOpening camera setup GUI...")
+                _run_python_script(Path("src/calibration/setup_cameras_gui.py"))
 
             elif (command == "record calibration images"):
                 mode = input("Mode [both/mono/stereo] (default both): ").strip().lower() or "both"

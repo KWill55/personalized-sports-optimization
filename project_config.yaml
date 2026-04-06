@@ -85,7 +85,6 @@ paths:
   stereo_calibration: data/{athlete}/{session}/calibration/stereo_calibration
   primary_measurements: data/{athlete}/{session}/primary_measurements
   secondary_measurements: data/{athlete}/{session}/secondary_measurements
-  metrics: data/{athlete}/{session}/primary_measurements
   keypoints_2d: data/{athlete}/{session}/primary_measurements/2d_keypoints
   keypoints_3d: data/{athlete}/{session}/primary_measurements/3d_keypoints
   angles: data/{athlete}/{session}/secondary_measurements/3d_angles

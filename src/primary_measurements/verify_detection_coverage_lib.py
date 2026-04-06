@@ -140,7 +140,7 @@ def _pct(valid: int, total: int) -> float:
 
 
 def run_verify_detection_coverage_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     keypoints_2d_dir = _format_path(cfg["paths"]["keypoints_2d"], cfg)
     keypoints_3d_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
     side_ball_dir = metrics_dir / "raw_ball_trajectories"

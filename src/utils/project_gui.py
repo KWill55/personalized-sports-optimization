@@ -56,11 +56,7 @@ DATA_DIR = ROOT / "data" / ATHLETE
 assert DATA_DIR.exists(), f"DATA_DIR not found: {DATA_DIR}"
 session_dir = DATA_DIR / SESSION
 PRIMARY_DIR = session_dir / "primary_measurements"
-if not PRIMARY_DIR.exists():
-    PRIMARY_DIR = session_dir / "metrics"
 SECONDARY_DIR = session_dir / "secondary_measurements"
-if not SECONDARY_DIR.exists():
-    SECONDARY_DIR = session_dir / "metrics"
 
 # Discover sessions for this athlete (folders under data/<ATHLETE>)
 SESSIONS = sorted([p.name for p in DATA_DIR.iterdir() if p.is_dir()])
@@ -118,8 +114,6 @@ def list_angle_csvs(athlete: str, sessions: list[str], root: Path = ROOT) -> pd.
     base = root / "data" / athlete
     for s in sessions:
         angles_dir = base / s / "secondary_measurements" / "3d_angles"
-        if not angles_dir.exists():
-            angles_dir = base / s / "metrics" / "3d_angles"
         if not angles_dir.exists():
             continue
         for p in sorted(angles_dir.glob("*_angles.csv")):

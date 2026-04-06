@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -16,15 +15,6 @@ from utils.io_utils import PROJECT_ROOT, load_csv_folder
 from utils.preprocess_utils import extract_base_freethrow_name
 
 
-@dataclass(frozen=True)
-class MetricKey:
-    source: str
-    column: str
-
-    def label(self) -> str:
-        return f"{self.source}::{self.column}"
-
-
 def _format_path(template_or_path: str, cfg: dict[str, Any]) -> Path:
     return PROJECT_ROOT / Path(template_or_path.format(athlete=cfg["athlete"], session=cfg["session"]))
 
@@ -34,11 +24,7 @@ def _session_root(athlete: str, session: str) -> Path:
 
 
 def _metrics_dir(athlete: str, session: str) -> Path:
-    session_root = _session_root(athlete, session)
-    primary = session_root / "primary_measurements"
-    if primary.exists():
-        return primary
-    return session_root / "metrics"
+    return _session_root(athlete, session) / "primary_measurements"
 
 
 def _analysis_dir(athlete: str, session: str) -> Path:
@@ -56,34 +42,6 @@ def _to_base_name_dict(dfs: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
         if base:
             out[base] = df
     return out
-
-
-def _load_release_map(metrics_dir: Path) -> dict[str, int]:
-    phases_path = metrics_dir / "freethrow_phases.csv"
-    shifts_path = metrics_dir / "alignment_release_shift_table.csv"
-    if not phases_path.exists() or not shifts_path.exists():
-        return {}
-
-    phases = pd.read_csv(phases_path)
-    shifts = pd.read_csv(shifts_path)
-    if "file" not in phases.columns or "raw_release_frame" not in phases.columns:
-        return {}
-    if "file" not in shifts.columns or "shift" not in shifts.columns:
-        return {}
-
-    phases = phases.copy()
-    shifts = shifts.copy()
-    phases["base"] = phases["file"].apply(extract_base_freethrow_name)
-    shifts["base"] = shifts["file"].apply(extract_base_freethrow_name)
-    phases["raw_release_frame"] = pd.to_numeric(phases["raw_release_frame"], errors="coerce")
-    shifts["shift"] = pd.to_numeric(shifts["shift"], errors="coerce")
-    merged = phases.merge(shifts[["base", "shift"]], on="base", how="inner")
-    merged = merged.dropna(subset=["base", "raw_release_frame", "shift"])
-    if merged.empty:
-        return {}
-
-    merged["aligned_release"] = np.rint(merged["raw_release_frame"] + merged["shift"]).astype(int)
-    return {str(r["base"]): int(r["aligned_release"]) for _, r in merged.iterrows()}
 
 
 def _load_outcomes_map(analysis_dir: Path) -> dict[str, str]:
@@ -187,41 +145,12 @@ def _load_sources_for_session(
     return sources, metrics_dir
 
 
-def _load_metric_sources(metrics_dir: Path) -> dict[str, dict[str, pd.DataFrame]]:
-    sources = {
-        "angles": metrics_dir / "3d_angles_aligned_release",
-        "keypoints": metrics_dir / "3d_keypoints_aligned_release",
-        "ball": metrics_dir / "aligned_ball_trajectory_release",
-    }
-    out: dict[str, dict[str, pd.DataFrame]] = {}
-    for name, path in sources.items():
-        if path.exists():
-            out[name] = _to_base_name_dict(load_csv_folder(path))
-        else:
-            out[name] = {}
-    return out
-
-
 def _numeric_columns_union(dfs: dict[str, pd.DataFrame], *, exclude: set[str] | None = None) -> set[str]:
     exclude = exclude or set()
     cols: set[str] = set()
     for df in dfs.values():
         cols |= set(df.select_dtypes(include=[np.number]).columns)
     return {c for c in cols if c not in exclude}
-
-
-def _build_metric_list(
-    template_sources: dict[str, dict[str, pd.DataFrame]],
-    athlete_sources: dict[str, dict[str, pd.DataFrame]],
-) -> list[MetricKey]:
-    metrics: list[MetricKey] = []
-    for source in ("angles", "keypoints", "ball"):
-        t_cols = _numeric_columns_union(template_sources.get(source, {}), exclude={"frame"})
-        a_cols = _numeric_columns_union(athlete_sources.get(source, {}), exclude={"frame"})
-        shared = sorted(t_cols & a_cols)
-        for c in shared:
-            metrics.append(MetricKey(source=source, column=c))
-    return metrics
 
 
 def _extract_relative_series(
@@ -290,34 +219,6 @@ def _template_stats_for_metric(
     if not np.any(valid):
         return None
     return t_grid[valid], mean[valid], std[valid]
-
-
-def _series_error_against_template(
-    t_throw: np.ndarray,
-    y_throw: np.ndarray,
-    t_tpl: np.ndarray,
-    y_tpl: np.ndarray,
-) -> tuple[float, float, int]:
-    if len(t_throw) < 2 or len(t_tpl) < 2:
-        return float("nan"), float("nan"), 0
-    t_lo = max(float(np.min(t_throw)), float(np.min(t_tpl)))
-    t_hi = min(float(np.max(t_throw)), float(np.max(t_tpl)))
-    if t_hi <= t_lo:
-        return float("nan"), float("nan"), 0
-
-    mask = (t_throw >= t_lo) & (t_throw <= t_hi)
-    if np.sum(mask) < 2:
-        return float("nan"), float("nan"), 0
-    t_eval = t_throw[mask]
-    y_eval = y_throw[mask]
-    y_tpl_eval = np.interp(t_eval, t_tpl, y_tpl)
-    diff = y_eval - y_tpl_eval
-    rmse = float(np.sqrt(np.mean(diff * diff)))
-
-    tpl_span = float(np.nanpercentile(y_tpl, 95) - np.nanpercentile(y_tpl, 5))
-    denom = tpl_span if np.isfinite(tpl_span) and tpl_span > 1e-6 else 1.0
-    pct_off = float(100.0 * rmse / denom)
-    return rmse, pct_off, len(t_eval)
 
 
 def _find_video_for_base(base: str, folder: Path | None) -> Path | None:

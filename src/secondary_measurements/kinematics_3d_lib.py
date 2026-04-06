@@ -95,7 +95,7 @@ def _central_diff_1d(x: np.ndarray, fps: float) -> np.ndarray:
 
 
 def run_kinematics_3d_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     aligned_cropped_keypoints_dir = metrics_dir / "3d_keypoints_aligned_release_cropped"
     default_keypoints_3d_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
     keypoints_3d_dir = (

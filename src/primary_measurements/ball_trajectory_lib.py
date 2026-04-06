@@ -208,24 +208,6 @@ def _detect_single_video(
     )
     return df
 
-
-def _save_trajectory_dict(
-    dfs: dict[str, pd.DataFrame],
-    out_dir: Path,
-    *,
-    overwrite_existing: bool,
-) -> int:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    skipped = 0
-    for name, df in dfs.items():
-        out_path = out_dir / f"{name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped += 1
-            continue
-        df.to_csv(out_path, index=False)
-    return skipped
-
-
 def _detect_videos_to_dir(
     videos: list[Path],
     out_dir: Path,
@@ -277,7 +259,7 @@ def run_ball_trajectory_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
             "Ultralytics is required for ball trajectory extraction. Install with: pip install ultralytics"
         ) from exc
 
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     raw_video_dir = _format_path(cfg["paths"]["ball_tracking_raw"], cfg)
 
     raw_ball_trajectory_dir = metrics_dir / "raw_ball_trajectories"
@@ -347,6 +329,4 @@ def run_ball_trajectory_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
         "used_shift_table": False,
     }
 
-
-# Backward-compatible alias for older imports/callers.
 run_ball_detection_pipeline = run_ball_trajectory_pipeline

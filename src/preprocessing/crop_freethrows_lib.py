@@ -258,7 +258,7 @@ def _crop_ball_release_to_threshold(
 
 
 def run_crop_freethrows_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
 
     aligned_keypoints_dir = metrics_dir / "3d_keypoints_aligned_release"
     aligned_angles_dir = metrics_dir / "3d_angles_aligned_release"
@@ -452,7 +452,7 @@ def _common_numeric_columns(dfs_list: list[dict[str, pd.DataFrame]], exclude: se
 
 
 def run_crop_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
 
     angles_aligned_dir = metrics_dir / "3d_angles_aligned_release"
     angles_cropped_dir = metrics_dir / "3d_angles_aligned_release_cropped"

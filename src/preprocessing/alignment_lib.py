@@ -103,25 +103,6 @@ KEYPOINT_FLAGS: dict[str, bool] = {
 }
 
 
-def _expand_keypoint_flags(keypoint_flags: dict[str, bool]) -> list[str]:
-    selected: list[str] = []
-    for keypoint, enabled in keypoint_flags.items():
-        if enabled:
-            selected.extend([f"{keypoint}_x", f"{keypoint}_y", f"{keypoint}_z"])
-    return selected
-
-
-def _make_relative(dfs_dict: dict[str, pd.DataFrame], cols: list[str]) -> dict[str, pd.DataFrame]:
-    out: dict[str, pd.DataFrame] = {}
-    for file_name, df in dfs_dict.items():
-        rel_df = df.copy()
-        for col in cols:
-            if col in rel_df.columns and not rel_df.empty:
-                rel_df[col] = rel_df[col] - rel_df[col].iloc[0]
-        out[file_name] = rel_df
-    return out
-
-
 def _format_path(template_or_path: str, cfg: dict[str, Any]) -> Path:
     return PROJECT_ROOT / Path(template_or_path.format(athlete=cfg["athlete"], session=cfg["session"]))
 
@@ -238,30 +219,8 @@ def _reframe_to_release_zero(
     return out
 
 
-def _load_cropped_alignment_inputs(
-    cfg: dict[str, Any],
-) -> tuple[Path, Path, Path, dict[str, pd.DataFrame], dict[str, pd.DataFrame], pd.DataFrame]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
-    cropped_keypoints_dir = metrics_dir / "3d_keypoints_cropped"
-    cropped_angles_dir = metrics_dir / "3d_angles_cropped"
-    cropped_phases_path = metrics_dir / "cropped_freethrow_phases.csv"
-
-    cropped_keypoints_dfs = _to_base_name_dict(load_csv_folder(cropped_keypoints_dir)) if cropped_keypoints_dir.exists() else {}
-    cropped_angles_dfs = _to_base_name_dict(load_csv_folder(cropped_angles_dir)) if cropped_angles_dir.exists() else {}
-    cropped_phases_df = pd.read_csv(cropped_phases_path) if cropped_phases_path.exists() else pd.DataFrame()
-
-    return (
-        metrics_dir,
-        cropped_keypoints_dir,
-        cropped_angles_dir,
-        cropped_keypoints_dfs,
-        cropped_angles_dfs,
-        cropped_phases_df,
-    )
-
-
 def run_alignment_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     keypoints_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
 
@@ -466,7 +425,7 @@ def _common_numeric_columns(dfs_list: list[dict[str, pd.DataFrame]], exclude: se
 
 
 def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
-    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
 
     cropped_phases_path = metrics_dir / "cropped_freethrow_phases.csv"
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
