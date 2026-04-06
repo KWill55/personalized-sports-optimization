@@ -86,8 +86,10 @@ class RecordingCaptureGui:
         self.stop_event = threading.Event()
 
         self.throw_count = 0
+        self.recorded_total = 0
         self.frame_counters = {"left": 0, "right": 0, "ball": 0}
         self.start_time: float | None = None
+        self.refresh_recorded_total()
 
     @staticmethod
     def _print_cam_init(name: str, cap: cv.VideoCapture) -> None:
@@ -212,7 +214,12 @@ class RecordingCaptureGui:
                     continue
         return max_count + 1
 
+    def refresh_recorded_total(self) -> int:
+        self.recorded_total = max(0, self._get_next_throw_number() - 1)
+        return self.recorded_total
+
     def start_recording(self, dims: Dict[str, tuple[int, int]]) -> None:
+        self.refresh_recorded_total()
         self.throw_count = self._get_next_throw_number()
         label = f"{self.name_prefix}{self.throw_count:0{self.pad_width}d}"
         print(f"[INFO] Starting {label}")
@@ -253,6 +260,8 @@ class RecordingCaptureGui:
             self.writers.clear()
 
         print("[INFO] Writers closed.")
+        total = self.refresh_recorded_total()
+        print(f"[INFO] Total recorded free throws: {total}")
 
     def _camera_info_text(self, name: str) -> str:
         w, h = self.display_res[name]
@@ -299,10 +308,12 @@ class _FreeThrowRecorderApp:
         self.root.minsize(1200, 800)
 
         self.status_text = tk.StringVar(value="Status: Idle")
+        self.count_text = tk.StringVar(value="")
         self.labels: Dict[str, Label] = {}
         self.images: Dict[str, ImageTk.PhotoImage] = {}
 
         self._setup_gui()
+        self._refresh_count_text()
         self._update_gui()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -328,6 +339,7 @@ class _FreeThrowRecorderApp:
             width=20,
         ).pack()
         Label(button_frame, textvariable=self.status_text, font=("Helvetica", 14)).pack(pady=10)
+        Label(button_frame, textvariable=self.count_text, font=("Helvetica", 14, "bold")).pack(pady=4)
 
         legend_frame = tk.Frame(frame_bottom)
         legend_frame.pack(side=tk.LEFT, padx=20, pady=5)
@@ -361,10 +373,16 @@ class _FreeThrowRecorderApp:
             self.recorder.start_recording(dims)
             label = f"{self.recorder.name_prefix}{self.recorder.throw_count:0{self.recorder.pad_width}d}"
             self.status_text.set(f"Recording {label}")
+            self._refresh_count_text()
             return
 
         self.recorder.stop_recording()
         self.status_text.set("Status: Idle")
+        self._refresh_count_text()
+
+    def _refresh_count_text(self) -> None:
+        total = self.recorder.recorded_total
+        self.count_text.set(f"Recorded Free Throws: {total}")
 
     def _update_gui(self) -> None:
         boxes = self.recorder._get_display_boxes(self.root)

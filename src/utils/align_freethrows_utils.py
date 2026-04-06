@@ -13,16 +13,28 @@ def align_by_lowest_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
     # 1. Compute reference dip frame (median)
     dips = {}
     for file, df in cropped_angles_dfs.items():
-        dip_frame = df[angle_col].idxmin()
-        dips[file] = dip_frame
+        if angle_col not in df.columns:
+            continue
+        vals = pd.to_numeric(df[angle_col], errors="coerce").to_numpy(dtype=float)
+        finite_idx = np.where(np.isfinite(vals))[0]
+        if len(finite_idx) == 0:
+            continue
+        local_min_idx = finite_idx[np.argmin(vals[finite_idx])]
+        dips[file] = int(local_min_idx)
 
-    median_dip = int(np.median(list(dips.values())))
+    if not dips:
+        return {}, pd.DataFrame(columns=["file", "shift"])
+
+    median_dip = int(round(float(np.median(list(dips.values())))))
 
     # 2. Align all throws by shifting dip to median_dip
     for file, df in cropped_angles_dfs.items():
+        if file not in dips:
+            continue
         shift = median_dip - dips[file]
         aligned_df = df.copy()
-        aligned_df[angle_col] = df[angle_col].shift(shift) # shift auto places front nans if needed
+        if angle_col in aligned_df.columns:
+            aligned_df[angle_col] = df[angle_col].shift(shift) # shift auto places front nans if needed
 
         aligned[file] = aligned_df
         logs.append({"file": file, "shift": shift})
@@ -51,7 +63,10 @@ def align_by_release_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
         release_frame = int(match["cropped_release_frame"].values[0])
         releases[file] = release_frame
 
-    median_release = int(np.median(list(releases.values())))
+    if not releases:
+        return {}, pd.DataFrame(columns=["file", "shift"])
+
+    median_release = int(round(float(np.median(list(releases.values())))))
 
     # 2. Align all throws by shifting release to median release
     for file, df in cropped_angles_dfs.items():
@@ -59,7 +74,8 @@ def align_by_release_frame(cropped_angles_dfs: dict[str, pd.DataFrame],
             continue
         shift = median_release - releases[file]
         aligned_df = df.copy()
-        aligned_df[angle_col] = df[angle_col].shift(shift) # shift auto places front nans if needed
+        if angle_col in aligned_df.columns:
+            aligned_df[angle_col] = df[angle_col].shift(shift) # shift auto places front nans if needed
 
         aligned[file] = aligned_df
         logs.append({"file": file, "shift": shift})
@@ -77,22 +93,35 @@ def align_by_min_unsigned_area(cropped_dfs: dict[str, pd.DataFrame],
     aligned = {}
     logs = []
 
+    valid_dfs = {}
+    for file, df in cropped_dfs.items():
+        if col not in df.columns:
+            continue
+        vals = pd.to_numeric(df[col], errors="coerce").to_numpy(dtype=float)
+        if np.isfinite(vals).any():
+            valid_dfs[file] = df
+
+    if not valid_dfs:
+        return {}, pd.DataFrame(columns=["file", "shift", "area"])
+
     # 1. Build mean curve (shortest common length)
-    min_len = min(len(df) for df in cropped_dfs.values())
+    min_len = min(len(df) for df in valid_dfs.values())
     curves = np.vstack([
-        df[col].values[:min_len]
-        for df in cropped_dfs.values()
+        pd.to_numeric(df[col], errors="coerce").to_numpy(dtype=float)[:min_len]
+        for df in valid_dfs.values()
     ])
     mean_curve = np.nanmean(curves, axis=0)
 
     # 2. For each throw, find shift with minimum unsigned area
-    for file, df in cropped_dfs.items():
-        curve = df[col].values[:min_len]
+    for file, df in valid_dfs.items():
+        curve = pd.to_numeric(df[col], errors="coerce").to_numpy(dtype=float)[:min_len]
         best_shift = 0
         best_area = np.inf
 
         # find overlapping region between the two curves 
         for shift in range(-search, search + 1):
+            if abs(shift) >= min_len:
+                continue
             if shift < 0: # curve is to the left of median curve 
                 c = curve[-shift:min_len]
                 m = mean_curve[:min_len + shift]
@@ -103,13 +132,20 @@ def align_by_min_unsigned_area(cropped_dfs: dict[str, pd.DataFrame],
                 c = curve
                 m = mean_curve
 
-            area = np.sum(np.abs(m - c))
+            if len(c) == 0 or len(m) == 0 or len(c) != len(m):
+                continue
+
+            valid = np.isfinite(m) & np.isfinite(c)
+            if not np.any(valid):
+                continue
+            area = float(np.sum(np.abs(m[valid] - c[valid])))
             if area < best_area:
                 best_area = area
                 best_shift = shift
 
         aligned_df = df.copy()
-        aligned_df[col] = df[col].shift(best_shift)
+        if col in aligned_df.columns:
+            aligned_df[col] = df[col].shift(best_shift)
 
         aligned[file] = aligned_df
         logs.append({"file": file, "shift": best_shift, "area": best_area})
@@ -123,21 +159,34 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
     aligned = {}
     logs = []
 
+    valid_dfs = {}
+    for file, df in cropped_angles_dfs.items():
+        if angle_col not in df.columns:
+            continue
+        vals = pd.to_numeric(df[angle_col], errors="coerce").to_numpy(dtype=float)
+        if np.isfinite(vals).any():
+            valid_dfs[file] = df
+
+    if not valid_dfs:
+        return {}, pd.DataFrame(columns=["file", "shift", "signed_segment_metric"])
+
     # 1. Build mean curve (shortest common length)
-    min_len = min(len(df) for df in cropped_angles_dfs.values())
+    min_len = min(len(df) for df in valid_dfs.values())
     curves = np.vstack([
-        df[angle_col].values[:min_len]
-        for df in cropped_angles_dfs.values()
+        pd.to_numeric(df[angle_col], errors="coerce").to_numpy(dtype=float)[:min_len]
+        for df in valid_dfs.values()
     ])
     mean_curve = np.nanmean(curves, axis=0)
 
     # 2. For each throw, search optimal shift
-    for file, df in cropped_angles_dfs.items():
-        curve = df[angle_col].values[:min_len]
+    for file, df in valid_dfs.items():
+        curve = pd.to_numeric(df[angle_col], errors="coerce").to_numpy(dtype=float)[:min_len]
         best_shift = 0
         best_metric = np.inf
 
         for s in range(-search, search + 1):
+            if abs(s) >= min_len:
+                continue
 
             # compute overlap slices
             if s < 0:
@@ -150,7 +199,15 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
                 c = curve
                 m = mean_curve
 
+            if len(c) == 0 or len(m) == 0 or len(c) != len(m):
+                continue
+
             # difference curve
+            valid = np.isfinite(c) & np.isfinite(m)
+            if not np.any(valid):
+                continue
+            c = c[valid]
+            m = m[valid]
             d = c - m
 
             # find intersections (sign changes)
@@ -178,7 +235,8 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
 
         # apply shift
         aligned_df = df.copy()
-        aligned_df[angle_col] = df[angle_col].shift(best_shift)
+        if angle_col in aligned_df.columns:
+            aligned_df[angle_col] = df[angle_col].shift(best_shift)
 
         aligned[file] = aligned_df
         logs.append({
@@ -192,17 +250,29 @@ def align_by_min_signed_area(cropped_angles_dfs: dict[str, pd.DataFrame],
 def apply_shift_to_dataset(
     dfs: dict[str, pd.DataFrame],
     log_df: pd.DataFrame,
-    fps: int,
-    cols: list[str]
+    fps: int | float | None,
+    cols: list[str],
+    shift_fps: int | float | None = None,
+    target_fps: int | float | None = None,
 ):
     shifted = {}
     shift_map = dict(zip(log_df["file"], log_df["shift"]))
 
+    # Backward compatible defaults:
+    # - existing calls used `fps` only (no scaling).
+    # - when cross-FPS scaling is needed, pass shift_fps + target_fps explicitly.
+    shift_fps_val = float(shift_fps) if shift_fps else (float(fps) if fps else None)
+    target_fps_val = float(target_fps) if target_fps else (float(fps) if fps else None)
+
     for file, df in dfs.items():
-        s = shift_map.get(file, 0)
+        s = float(shift_map.get(file, 0))
+        if shift_fps_val and target_fps_val and shift_fps_val > 0 and target_fps_val > 0:
+            s = s * (target_fps_val / shift_fps_val)
+        s_int = int(round(s))
         new_df = df.copy()
         for c in cols:
-            new_df[c] = new_df[c].shift(s)
+            if c in new_df.columns:
+                new_df[c] = new_df[c].shift(s_int)
         shifted[file] = new_df
 
     return shifted
@@ -235,8 +305,5 @@ def apply_shift_to_dataset(
 #         shifted_dfs[name] = temp
     
 #     return shifted_dfs
-
-
-
 
 

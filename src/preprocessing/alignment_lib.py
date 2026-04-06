@@ -9,15 +9,12 @@ import numpy as np
 import pandas as pd
 
 from utils.align_freethrows_utils import (
-    align_by_lowest_frame,
-    align_by_min_signed_area,
-    align_by_min_unsigned_area,
-    align_by_release_frame,
     apply_shift_to_dataset,
 )
 from utils.io_utils import load_csv_folder
 from utils.io_utils import PROJECT_ROOT
-from utils.preprocess_utils import crop_to_freethrow, extract_base_freethrow_name
+from utils.preprocess_utils import extract_base_freethrow_name
+from utils.curve_comparison_viewer import run_curve_comparison_viewer
 
 
 KEYPOINT_COLS: list[str] = [
@@ -138,179 +135,283 @@ def _to_base_name_dict(dfs: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     }
 
 
-def run_alignment_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
+def _save_csv_dict(
+    dfs: dict[str, pd.DataFrame],
+    out_dir: Path,
+    overwrite_existing: bool,
+) -> tuple[int, int]:
+    written = 0
+    skipped = 0
+    for freethrow_name, df in dfs.items():
+        out_path = out_dir / f"{freethrow_name}.csv"
+        if out_path.exists() and not overwrite_existing:
+            skipped += 1
+            continue
+        df.to_csv(out_path, index=False)
+        written += 1
+    return written, skipped
+
+
+def _build_release_shift_log(
+    phases_df: pd.DataFrame,
+    valid_trials: set[str],
+    release_col: str,
+) -> tuple[pd.DataFrame, int]:
+    work = phases_df.copy()
+    work["base"] = work["file"].apply(extract_base_freethrow_name)
+    work = work[work["base"].isin(valid_trials)].copy()
+    work[release_col] = pd.to_numeric(work[release_col], errors="coerce")
+    work = work.dropna(subset=[release_col])
+    if work.empty:
+        return pd.DataFrame(columns=["file", "shift"]), 0
+
+    # If duplicates exist, keep the first valid release frame per trial.
+    release_per_trial = (
+        work.sort_values("file")
+        .drop_duplicates(subset=["base"], keep="first")[["base", release_col]]
+        .rename(columns={"base": "file"})
+    )
+    median_release = int(round(float(np.median(release_per_trial[release_col].to_numpy(dtype=float)))))
+    log_df = release_per_trial.copy()
+    log_df["shift"] = median_release - pd.to_numeric(log_df[release_col], errors="coerce")
+    log_df = log_df[["file", "shift"]].copy()
+    log_df["shift"] = pd.to_numeric(log_df["shift"], errors="coerce").fillna(0).astype(int)
+    return log_df, median_release
+
+
+def _build_aligned_release_map(
+    phases_df: pd.DataFrame,
+    valid_trials: set[str],
+    release_col: str,
+    log_df: pd.DataFrame,
+) -> dict[str, int]:
+    if log_df.empty:
+        return {}
+    work = phases_df.copy()
+    work["base"] = work["file"].apply(extract_base_freethrow_name)
+    work = work[work["base"].isin(valid_trials)].copy()
+    work[release_col] = pd.to_numeric(work[release_col], errors="coerce")
+    work = work.dropna(subset=["base", release_col])
+    if work.empty:
+        return {}
+
+    raw_release_map = (
+        work.sort_values("file")
+        .drop_duplicates(subset=["base"], keep="first")
+        .set_index("base")[release_col]
+        .astype(float)
+        .to_dict()
+    )
+    shift_map = (
+        log_df.copy()
+        .set_index("file")["shift"]
+        .astype(float)
+        .to_dict()
+    )
+
+    out: dict[str, int] = {}
+    for base in sorted(set(raw_release_map.keys()) & set(shift_map.keys())):
+        out[base] = int(round(float(raw_release_map[base]) + float(shift_map[base])))
+    return out
+
+
+def _reframe_to_release_zero(
+    dfs: dict[str, pd.DataFrame],
+    aligned_release_map: dict[str, int],
+) -> dict[str, pd.DataFrame]:
+    out: dict[str, pd.DataFrame] = {}
+    for name, df in dfs.items():
+        rel = aligned_release_map.get(name)
+        if rel is None:
+            out[name] = df
+            continue
+        new_df = df.copy()
+        if "frame" in new_df.columns:
+            frame_vals = pd.to_numeric(new_df["frame"], errors="coerce").to_numpy(dtype=float)
+            frame_vals = np.where(np.isfinite(frame_vals), frame_vals, np.arange(len(new_df), dtype=float))
+        else:
+            frame_vals = np.arange(len(new_df), dtype=float)
+        aligned_frame = np.rint(frame_vals - float(rel)).astype(int)
+        new_df["frame"] = aligned_frame
+        new_df["aligned_frame"] = aligned_frame
+        out[name] = new_df
+    return out
+
+
+def _load_cropped_alignment_inputs(
+    cfg: dict[str, Any],
+) -> tuple[Path, Path, Path, dict[str, pd.DataFrame], dict[str, pd.DataFrame], pd.DataFrame]:
     metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
-    keypoints_path = _format_path(cfg["paths"]["keypoints_3d"], cfg)
-    angles_path = _format_path(cfg["paths"]["angles"], cfg)
-
-    phases_path = metrics_dir / "freethrow_phases.csv"
-    outcomes_path = metrics_dir / "outcomes.csv"
-
-    cropped_phases_path = metrics_dir / "cropped_freethrow_phases.csv"
     cropped_keypoints_dir = metrics_dir / "3d_keypoints_cropped"
     cropped_angles_dir = metrics_dir / "3d_angles_cropped"
+    cropped_phases_path = metrics_dir / "cropped_freethrow_phases.csv"
+
+    cropped_keypoints_dfs = _to_base_name_dict(load_csv_folder(cropped_keypoints_dir)) if cropped_keypoints_dir.exists() else {}
+    cropped_angles_dfs = _to_base_name_dict(load_csv_folder(cropped_angles_dir)) if cropped_angles_dir.exists() else {}
+    cropped_phases_df = pd.read_csv(cropped_phases_path) if cropped_phases_path.exists() else pd.DataFrame()
+
+    return (
+        metrics_dir,
+        cropped_keypoints_dir,
+        cropped_angles_dir,
+        cropped_keypoints_dfs,
+        cropped_angles_dfs,
+        cropped_phases_df,
+    )
+
+
+def run_alignment_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
+    metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
+    keypoints_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
+    phases_path = _format_path(cfg["paths"]["phases"], cfg)
+
+    keypoints_dfs = _to_base_name_dict(load_csv_folder(keypoints_dir)) if keypoints_dir.exists() else {}
+    phases_df = pd.read_csv(phases_path) if phases_path.exists() else pd.DataFrame()
+
+    if not keypoints_dfs or phases_df.empty:
+        raise ValueError("Missing alignment inputs. Need 3D keypoints and freethrow phases.")
+    if "file" not in phases_df.columns:
+        raise ValueError(f"Phases CSV must contain file column: {phases_path}")
+
+    phases_df = phases_df.copy()
+    preferred_keypoint_release_col = str(cfg.get("alignment_release_column", "raw_release_frame_stereo"))
+    keypoint_candidate_cols = [preferred_keypoint_release_col, "raw_release_frame_stereo", "raw_release_frame"]
+    keypoint_release_col = next((c for c in keypoint_candidate_cols if c in phases_df.columns), None)
+    if keypoint_release_col is None:
+        raise ValueError(
+            f"Phases CSV missing keypoint release-frame column. Tried: {keypoint_candidate_cols}. Path: {phases_path}"
+        )
+
+    preferred_ball_release_col = str(cfg.get("alignment_ball_release_column", "raw_release_frame_ball_cam"))
+    ball_candidate_cols = [preferred_ball_release_col, "raw_release_frame_ball_cam", "raw_release_frame"]
+    ball_release_col = next((c for c in ball_candidate_cols if c in phases_df.columns), None)
+    if ball_release_col is None:
+        raise ValueError(
+            f"Phases CSV missing ball release-frame column. Tried: {ball_candidate_cols}. Path: {phases_path}"
+        )
+
+    phases_trials = {extract_base_freethrow_name(v) for v in phases_df["file"].tolist()}
+    keypoint_trials = set(keypoints_dfs.keys()) & phases_trials
+    if not keypoint_trials:
+        raise ValueError("No overlapping trials across 3D keypoints/phases.")
+
+    keypoints_dfs = {k: v for k, v in keypoints_dfs.items() if k in keypoint_trials}
+    phases_df = phases_df[phases_df["file"].apply(extract_base_freethrow_name).isin(phases_trials)].copy()
+
     aligned_keypoints_release_dir = metrics_dir / "3d_keypoints_aligned_release"
-    aligned_keypoints_unsigned_dir = metrics_dir / "3d_keypoints_aligned_unsigned_area"
-    aligned_angles_release_dir = metrics_dir / "3d_angles_aligned_release"
-    aligned_angles_unsigned_dir = metrics_dir / "3d_angles_aligned_unsigned_area"
-    shift_table_path = metrics_dir / "alignment_shift_table.csv"
     release_shift_table_path = metrics_dir / "alignment_release_shift_table.csv"
+    ball_release_shift_table_path = metrics_dir / "alignment_release_shift_table_ball_cam.csv"
+    aligned_ball_release_dir = metrics_dir / "aligned_ball_trajectory_release"
     overwrite_existing = bool(cfg.get("overwrite_existing_outputs", False))
 
     for path in [
-        cropped_keypoints_dir,
-        cropped_angles_dir,
         aligned_keypoints_release_dir,
-        aligned_keypoints_unsigned_dir,
-        aligned_angles_release_dir,
-        aligned_angles_unsigned_dir,
+        aligned_ball_release_dir,
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
-    if not phases_path.exists():
-        raise FileNotFoundError(f"Missing phases file: {phases_path}")
-
-    if outcomes_path.exists():
-        _ = pd.read_csv(outcomes_path)
-
-    raw_phases_df = pd.read_csv(phases_path)
-
-    cropped_phases_df = pd.DataFrame(
-        {
-            "file": raw_phases_df["file"],
-            "cropped_first_frame": 0,
-            "cropped_release_frame": raw_phases_df["raw_release_frame"] - raw_phases_df["raw_windup_start"],
-            "cropped_last_frame": raw_phases_df["raw_followthrough_end"] - raw_phases_df["raw_windup_start"],
-        }
+    keypoint_release_log_df, keypoint_median_release = _build_release_shift_log(
+        phases_df=phases_df,
+        valid_trials=keypoint_trials,
+        release_col=keypoint_release_col,
     )
-    cropped_phases_df.to_csv(cropped_phases_path, index=False)
-
-    raw_keypoints_dfs = _to_base_name_dict(load_csv_folder(keypoints_path))
-    raw_angles_dfs = _to_base_name_dict(load_csv_folder(angles_path))
-
-    if not raw_keypoints_dfs or not raw_angles_dfs:
-        raise ValueError("No keypoint/angle CSVs found. Verify metrics paths and extraction steps.")
-
-    cropped_keypoints_dfs = crop_to_freethrow(raw_keypoints_dfs, raw_phases_df)
-    cropped_angles_dfs = crop_to_freethrow(raw_angles_dfs, raw_phases_df)
-
-    selected_keypoints = _expand_keypoint_flags(KEYPOINT_FLAGS)
-    cropped_relative_keypoints_dfs = _make_relative(cropped_keypoints_dfs, selected_keypoints)
-
-    cropped_relative_keypoints_dfs = _to_base_name_dict(cropped_relative_keypoints_dfs)
-    cropped_angles_dfs = _to_base_name_dict(cropped_angles_dfs)
-
-    skipped_existing = 0
-
-    for freethrow_name, df in cropped_relative_keypoints_dfs.items():
-        out_path = cropped_keypoints_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
-
-    for freethrow_name, df in cropped_angles_dfs.items():
-        out_path = cropped_angles_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
-
-    _, angles_lowest_frame_log_df = align_by_lowest_frame(cropped_angles_dfs)
-    _, angles_release_frame_log_df = align_by_release_frame(cropped_angles_dfs, cropped_phases_df)
-    _, angles_unsigned_area_log_df = align_by_min_unsigned_area(cropped_angles_dfs, "elbow_flex_r")
-    _, angles_signed_area_log_df = align_by_min_signed_area(cropped_angles_dfs)
-
-    if overwrite_existing or not shift_table_path.exists():
-        angles_unsigned_area_log_df.to_csv(shift_table_path, index=False)
+    if keypoint_release_log_df.empty:
+        raise ValueError(
+            f"No valid keypoint release frames found for alignment using '{keypoint_release_col}'."
+        )
     if overwrite_existing or not release_shift_table_path.exists():
-        angles_release_frame_log_df.to_csv(release_shift_table_path, index=False)
-
-    angles_unsigned_area_log_df["file"] = angles_unsigned_area_log_df["file"].apply(extract_base_freethrow_name)
-    angles_release_frame_log_df["file"] = angles_release_frame_log_df["file"].apply(extract_base_freethrow_name)
-
-    valid_trials = (
-        set(cropped_angles_dfs.keys())
-        & set(cropped_relative_keypoints_dfs.keys())
-        & set(angles_unsigned_area_log_df["file"])
-    )
-
-    cropped_angles_dfs = {k: v for k, v in cropped_angles_dfs.items() if k in valid_trials}
-    cropped_relative_keypoints_dfs = {
-        k: v for k, v in cropped_relative_keypoints_dfs.items() if k in valid_trials
-    }
-
-    angles_unsigned_area_log_df = angles_unsigned_area_log_df[
-        angles_unsigned_area_log_df["file"].isin(valid_trials)
-    ]
-    angles_release_frame_log_df = angles_release_frame_log_df[
-        angles_release_frame_log_df["file"].isin(valid_trials)
-    ]
+        keypoint_release_log_df.to_csv(release_shift_table_path, index=False)
 
     aligned_relative_keypoints_release_frame_dfs = apply_shift_to_dataset(
-        dfs=cropped_relative_keypoints_dfs,
-        log_df=angles_release_frame_log_df,
+        dfs=keypoints_dfs,
+        log_df=keypoint_release_log_df,
         fps=int(cfg.get("player_tracking_fps", 60)),
         cols=KEYPOINT_COLS,
     )
-    aligned_relative_keypoints_unsigned_area_dfs = apply_shift_to_dataset(
-        dfs=cropped_relative_keypoints_dfs,
-        log_df=angles_unsigned_area_log_df,
-        fps=int(cfg.get("player_tracking_fps", 60)),
-        cols=KEYPOINT_COLS,
+
+    keypoint_aligned_release_map = _build_aligned_release_map(
+        phases_df=phases_df,
+        valid_trials=keypoint_trials,
+        release_col=keypoint_release_col,
+        log_df=keypoint_release_log_df,
     )
-    aligned_angles_release_frame_dfs = apply_shift_to_dataset(
-        dfs=cropped_angles_dfs,
-        log_df=angles_release_frame_log_df,
-        fps=int(cfg.get("player_tracking_fps", 60)),
-        cols=JOINT_COLS,
-    )
-    aligned_angles_unsigned_area_dfs = apply_shift_to_dataset(
-        dfs=cropped_angles_dfs,
-        log_df=angles_unsigned_area_log_df,
-        fps=int(cfg.get("player_tracking_fps", 60)),
-        cols=JOINT_COLS,
+    aligned_relative_keypoints_release_frame_dfs = _reframe_to_release_zero(
+        aligned_relative_keypoints_release_frame_dfs,
+        keypoint_aligned_release_map,
     )
 
-    for freethrow_name, df in aligned_relative_keypoints_release_frame_dfs.items():
-        out_path = aligned_keypoints_release_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
-    for freethrow_name, df in aligned_relative_keypoints_unsigned_area_dfs.items():
-        out_path = aligned_keypoints_unsigned_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
-    for freethrow_name, df in aligned_angles_release_frame_dfs.items():
-        out_path = aligned_angles_release_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
-    for freethrow_name, df in aligned_angles_unsigned_area_dfs.items():
-        out_path = aligned_angles_unsigned_dir / f"{freethrow_name}.csv"
-        if out_path.exists() and not overwrite_existing:
-            skipped_existing += 1
-            continue
-        df.to_csv(out_path, index=False)
+    _, skip_kp_release = _save_csv_dict(
+        aligned_relative_keypoints_release_frame_dfs,
+        aligned_keypoints_release_dir,
+        overwrite_existing=overwrite_existing,
+    )
 
-    print(f"Valid trials: {len(valid_trials)}")
-    print(f"Saved cropped phases: {cropped_phases_path}")
-    print(f"Saved unsigned-area shift table: {shift_table_path}")
+    skipped_existing = skip_kp_release
+
+    ball_source_dir = metrics_dir / "raw_ball_trajectories"
+    ball_dfs = _to_base_name_dict(load_csv_folder(ball_source_dir)) if ball_source_dir.exists() else {}
+    ball_cols: list[str] = []
+    aligned_ball_dfs: dict[str, pd.DataFrame] = {}
+    ball_release_log_df = pd.DataFrame(columns=["file", "shift"])
+    ball_trials = set()
+    ball_median_release = 0
+    if ball_dfs:
+        ball_trials = set(ball_dfs.keys()) & phases_trials
+        sample_ball_df = next(iter(ball_dfs.values()))
+        ball_cols = [c for c in sample_ball_df.select_dtypes(include=[np.number]).columns if c != "frame"]
+        if ball_cols:
+            ball_release_log_df, ball_median_release = _build_release_shift_log(
+                phases_df=phases_df,
+                valid_trials=ball_trials,
+                release_col=ball_release_col,
+            )
+            if overwrite_existing or not ball_release_shift_table_path.exists():
+                ball_release_log_df.to_csv(ball_release_shift_table_path, index=False)
+            aligned_ball_dfs = apply_shift_to_dataset(
+                dfs={k: v for k, v in ball_dfs.items() if k in ball_trials},
+                log_df=ball_release_log_df,
+                fps=int(cfg.get("ball_tracking_fps", 30)),
+                shift_fps=int(cfg.get("ball_tracking_fps", 30)),
+                target_fps=int(cfg.get("ball_tracking_fps", 30)),
+                cols=ball_cols,
+            )
+            ball_aligned_release_map = _build_aligned_release_map(
+                phases_df=phases_df,
+                valid_trials=ball_trials,
+                release_col=ball_release_col,
+                log_df=ball_release_log_df,
+            )
+            aligned_ball_dfs = _reframe_to_release_zero(
+                aligned_ball_dfs,
+                ball_aligned_release_map,
+            )
+            _, skipped_ball = _save_csv_dict(
+                aligned_ball_dfs,
+                aligned_ball_release_dir,
+                overwrite_existing=overwrite_existing,
+            )
+            skipped_existing += skipped_ball
+
+    print(f"Aligned keypoint trials: {len(keypoint_trials)}")
+    print(f"Keypoint alignment release column: {keypoint_release_col} (median={keypoint_median_release})")
+    print(f"Saved keypoint release shift table: {release_shift_table_path}")
+    if aligned_ball_dfs:
+        print(f"Aligned ball trials: {len(aligned_ball_dfs)}")
+        print(f"Ball alignment release column: {ball_release_col} (median={ball_median_release})")
+        print(f"Saved ball release shift table: {ball_release_shift_table_path}")
+        print(f"Saved aligned trajectories: {aligned_ball_release_dir}")
     print(f"Skipped existing output files: {skipped_existing}")
 
     return {
         "metrics_dir": str(metrics_dir),
-        "valid_trials": len(valid_trials),
-        "cropped_phases_path": str(cropped_phases_path),
-        "unsigned_shift_table_path": str(shift_table_path),
+        "aligned_keypoint_trials": len(aligned_relative_keypoints_release_frame_dfs),
         "release_shift_table_path": str(release_shift_table_path),
-        "lowest_log_rows": len(angles_lowest_frame_log_df),
-        "signed_log_rows": len(angles_signed_area_log_df),
+        "ball_release_shift_table_path": str(ball_release_shift_table_path),
         "skipped_existing_outputs": skipped_existing,
+        "aligned_ball_trials": len(aligned_ball_dfs),
+        "alignment_mode": "release_only",
+        "keypoint_release_frame_column": keypoint_release_col,
+        "ball_release_frame_column": ball_release_col,
     }
 
 
@@ -322,56 +423,14 @@ def _load_csv_dict_or_single(path: Path) -> dict[str, pd.DataFrame]:
     return {}
 
 
-def _align_by_min_squared_error(
-    cropped_dfs: dict[str, pd.DataFrame],
-    col: str,
-    search: int = 20,
-) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
-    aligned: dict[str, pd.DataFrame] = {}
-    logs: list[dict[str, Any]] = []
-
-    if not cropped_dfs:
-        return aligned, pd.DataFrame(columns=["file", "shift", "squared_error"])
-
-    min_len = min(len(df) for df in cropped_dfs.values())
-    curves = np.vstack([df[col].values[:min_len] for df in cropped_dfs.values()])
-    mean_curve = np.nanmean(curves, axis=0)
-
-    for file, df in cropped_dfs.items():
-        curve = df[col].values[:min_len]
-        best_shift = 0
-        best_score = np.inf
-
-        for shift in range(-search, search + 1):
-            if shift < 0:
-                c = curve[-shift:min_len]
-                m = mean_curve[: min_len + shift]
-            elif shift > 0:
-                c = curve[: min_len - shift]
-                m = mean_curve[shift:min_len]
-            else:
-                c = curve
-                m = mean_curve
-
-            score = np.nansum((m - c) ** 2)
-            if score < best_score:
-                best_score = score
-                best_shift = shift
-
-        aligned_df = df.copy()
-        if col in aligned_df.columns:
-            aligned_df[col] = aligned_df[col].shift(best_shift)
-        aligned[file] = aligned_df
-        logs.append({"file": file, "shift": best_shift, "squared_error": float(best_score)})
-
-    return aligned, pd.DataFrame(logs)
-
-
 def _apply_shift_with_log(
     dfs: dict[str, pd.DataFrame],
     log_df: pd.DataFrame,
     cols: list[str],
     fps: int,
+    *,
+    shift_fps: int | None = None,
+    target_fps: int | None = None,
 ) -> dict[str, pd.DataFrame]:
     if not dfs or log_df is None or log_df.empty:
         return {}
@@ -380,7 +439,14 @@ def _apply_shift_with_log(
     valid_cols = [c for c in cols if any(c in df.columns for df in dfs.values())]
     if not valid_cols:
         return {}
-    return apply_shift_to_dataset(dfs=dfs, log_df=log_df, fps=fps, cols=valid_cols)
+    return apply_shift_to_dataset(
+        dfs=dfs,
+        log_df=log_df,
+        fps=fps,
+        cols=valid_cols,
+        shift_fps=shift_fps,
+        target_fps=target_fps,
+    )
 
 
 def _common_numeric_columns(dfs_list: list[dict[str, pd.DataFrame]], exclude: set[str] | None = None) -> list[str]:
@@ -400,57 +466,55 @@ def _common_numeric_columns(dfs_list: list[dict[str, pd.DataFrame]], exclude: se
 
 
 def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
-    import tkinter as tk
-    from tkinter import ttk
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
     metrics_dir = _format_path(cfg["paths"]["metrics"], cfg)
 
     cropped_phases_path = metrics_dir / "cropped_freethrow_phases.csv"
-    cropped_phases_df = pd.read_csv(cropped_phases_path) if cropped_phases_path.exists() else None
+    phases_path = _format_path(cfg["paths"]["phases"], cfg)
+    phases_df = pd.read_csv(phases_path) if phases_path.exists() else pd.DataFrame()
+    if cropped_phases_path.exists():
+        cropped_phases_df = pd.read_csv(cropped_phases_path)
+    else:
+        cropped_phases_df = phases_df.copy() if not phases_df.empty else None
+        if cropped_phases_df is not None and "cropped_release_frame" not in cropped_phases_df.columns:
+            if "raw_release_frame_stereo" in cropped_phases_df.columns:
+                cropped_phases_df = cropped_phases_df.copy()
+                cropped_phases_df["cropped_release_frame"] = pd.to_numeric(
+                    cropped_phases_df["raw_release_frame_stereo"], errors="coerce"
+                )
+            elif "raw_release_frame" in cropped_phases_df.columns:
+                cropped_phases_df = cropped_phases_df.copy()
+                cropped_phases_df["cropped_release_frame"] = pd.to_numeric(
+                    cropped_phases_df["raw_release_frame"], errors="coerce"
+                )
 
     fps = int(cfg.get("player_tracking_fps", 60))
 
     angles_unaligned = _load_csv_dict_or_single(metrics_dir / "3d_angles_cropped")
+    if not angles_unaligned:
+        angles_path = _format_path(cfg["paths"]["angles"], cfg)
+        if angles_path.exists():
+            angles_unaligned = _to_base_name_dict(load_csv_folder(angles_path))
     keypoints_unaligned = _load_csv_dict_or_single(metrics_dir / "3d_keypoints_cropped")
+    if not keypoints_unaligned:
+        keypoints_path = _format_path(cfg["paths"]["keypoints_3d"], cfg)
+        if keypoints_path.exists():
+            keypoints_unaligned = _to_base_name_dict(load_csv_folder(keypoints_path))
     ball_unaligned = _load_csv_dict_or_single(metrics_dir / "cropped_ball_trajectory")
     if not ball_unaligned:
-        ball_unaligned = _load_csv_dict_or_single(metrics_dir / "raw_ball_trajectory")
+        ball_unaligned = _load_csv_dict_or_single(metrics_dir / "raw_ball_trajectories")
 
     release_log_path = metrics_dir / "alignment_release_shift_table.csv"
-    unsigned_log_path = metrics_dir / "alignment_shift_table.csv"
-
     release_log = pd.read_csv(release_log_path) if release_log_path.exists() else pd.DataFrame()
-    unsigned_log = pd.read_csv(unsigned_log_path) if unsigned_log_path.exists() else pd.DataFrame()
     if not release_log.empty and "file" in release_log.columns:
         release_log["file"] = release_log["file"].apply(extract_base_freethrow_name)
-    if not unsigned_log.empty and "file" in unsigned_log.columns:
-        unsigned_log["file"] = unsigned_log["file"].apply(extract_base_freethrow_name)
-
-    signed_log = pd.DataFrame()
-    squared_log = pd.DataFrame()
-    if angles_unaligned:
-        _, signed_log = align_by_min_signed_area(angles_unaligned, "elbow_flex_r")
-        _, squared_log = _align_by_min_squared_error(angles_unaligned, "elbow_flex_r")
 
     angles_release = _load_csv_dict_or_single(metrics_dir / "3d_angles_aligned_release")
     if not angles_release:
         angles_release = _apply_shift_with_log(angles_unaligned, release_log, JOINT_COLS, fps)
-    angles_unsigned = _load_csv_dict_or_single(metrics_dir / "3d_angles_aligned_unsigned_area")
-    if not angles_unsigned:
-        angles_unsigned = _apply_shift_with_log(angles_unaligned, unsigned_log, JOINT_COLS, fps)
-    angles_signed = _apply_shift_with_log(angles_unaligned, signed_log, JOINT_COLS, fps)
-    angles_squared = _apply_shift_with_log(angles_unaligned, squared_log, JOINT_COLS, fps)
 
     keypoints_release = _load_csv_dict_or_single(metrics_dir / "3d_keypoints_aligned_release")
     if not keypoints_release:
         keypoints_release = _apply_shift_with_log(keypoints_unaligned, release_log, KEYPOINT_COLS, fps)
-    keypoints_unsigned = _load_csv_dict_or_single(metrics_dir / "3d_keypoints_aligned_unsigned_area")
-    if not keypoints_unsigned:
-        keypoints_unsigned = _apply_shift_with_log(keypoints_unaligned, unsigned_log, KEYPOINT_COLS, fps)
-    keypoints_signed = _apply_shift_with_log(keypoints_unaligned, signed_log, KEYPOINT_COLS, fps)
-    keypoints_squared = _apply_shift_with_log(keypoints_unaligned, squared_log, KEYPOINT_COLS, fps)
 
     ball_cols = []
     if ball_unaligned:
@@ -459,30 +523,26 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
         if not ball_cols:
             ball_cols = [c for c in sample_ball_df.select_dtypes(include=[np.number]).columns if c != "frame"]
 
-    ball_release = _apply_shift_with_log(ball_unaligned, release_log, ball_cols, fps)
-    ball_unsigned = _load_csv_dict_or_single(metrics_dir / "aligned_ball_trajectory_unsigned_area")
-    if not ball_unsigned:
-        ball_unsigned = _apply_shift_with_log(ball_unaligned, unsigned_log, ball_cols, fps)
-    ball_signed = _apply_shift_with_log(ball_unaligned, signed_log, ball_cols, fps)
-    ball_squared = _apply_shift_with_log(ball_unaligned, squared_log, ball_cols, fps)
+    ball_fps = int(cfg.get("ball_tracking_fps", 30))
+    ball_release = _load_csv_dict_or_single(metrics_dir / "aligned_ball_trajectory_release")
+    if not ball_release:
+        ball_release = _apply_shift_with_log(
+            ball_unaligned,
+            release_log,
+            ball_cols,
+            fps=ball_fps,
+            shift_fps=fps,
+            target_fps=ball_fps,
+        )
 
     angle_mode_sets = {
         "Aligned (Release)": angles_release,
-        "Aligned (Unsigned Area)": angles_unsigned,
-        "Aligned (Signed Area)": angles_signed,
-        "Aligned (Squared Error)": angles_squared,
     }
     keypoint_mode_sets = {
         "Aligned (Release)": keypoints_release,
-        "Aligned (Unsigned Area)": keypoints_unsigned,
-        "Aligned (Signed Area)": keypoints_signed,
-        "Aligned (Squared Error)": keypoints_squared,
     }
     ball_mode_sets = {
         "Aligned (Release)": ball_release,
-        "Aligned (Unsigned Area)": ball_unsigned,
-        "Aligned (Signed Area)": ball_signed,
-        "Aligned (Squared Error)": ball_squared,
     }
 
     angle_curves = _common_numeric_columns([angles_unaligned], exclude={"frame"})
@@ -496,270 +556,68 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
 
     tab_specs = {
         "Angles": {
-            "unaligned": angles_unaligned,
-            "mode_sets": angle_mode_sets,
+            "left": angles_unaligned,
+            "right": angle_mode_sets["Aligned (Release)"],
+            "left_label": "Unaligned",
             "curves": angle_curves,
             "ylabel": "Angle",
-            "show_release": True,
+            "show_release_left": False,
+            "show_release_right": True,
         },
         "Keypoints": {
-            "unaligned": keypoints_unaligned,
-            "mode_sets": keypoint_mode_sets,
+            "left": keypoints_unaligned,
+            "right": keypoint_mode_sets["Aligned (Release)"],
+            "left_label": "Unaligned",
             "curves": keypoint_curves,
             "ylabel": "Position",
-            "show_release": True,
+            "show_release_left": False,
+            "show_release_right": True,
         },
         "Ball": {
-            "unaligned": ball_unaligned,
-            "mode_sets": ball_mode_sets,
+            "left": ball_unaligned,
+            "right": ball_mode_sets["Aligned (Release)"],
+            "left_label": "Unaligned",
             "curves": ball_curves,
             "ylabel": "Ball Metric",
-            "show_release": False,
+            "show_release_left": False,
+            "show_release_right": True,
         },
     }
+    release_frames = np.array([], dtype=float)
+    if cropped_phases_df is not None and "cropped_release_frame" in cropped_phases_df.columns:
+        release_frames = pd.to_numeric(cropped_phases_df["cropped_release_frame"], errors="coerce").dropna().to_numpy(dtype=float)
+    ball_release_frames = np.array([], dtype=float)
+    if not phases_df.empty:
+        if "raw_release_frame_ball_cam" in phases_df.columns:
+            ball_release_frames = pd.to_numeric(
+                phases_df["raw_release_frame_ball_cam"], errors="coerce"
+            ).dropna().to_numpy(dtype=float)
+        elif "raw_release_frame_stereo" in phases_df.columns:
+            ball_release_frames = (
+                pd.to_numeric(phases_df["raw_release_frame_stereo"], errors="coerce").dropna().to_numpy(dtype=float)
+                * (float(cfg.get("ball_tracking_fps", 30.0)) / max(float(cfg.get("player_tracking_fps", 60.0)), 1e-6))
+            )
+        elif "raw_release_frame" in phases_df.columns:
+            ball_release_frames = (
+                pd.to_numeric(phases_df["raw_release_frame"], errors="coerce").dropna().to_numpy(dtype=float)
+                * (float(cfg.get("ball_tracking_fps", 30.0)) / max(float(cfg.get("player_tracking_fps", 60.0)), 1e-6))
+            )
 
-    curve_index = {tab: 0 for tab in tab_specs}
-    tab_names = [t for t, spec in tab_specs.items() if spec["curves"]]
-    if not tab_names:
-        raise ValueError("Viewer tabs have no curves to display.")
-
-    root = tk.Tk()
-    root.title("Alignment Review")
-    root.geometry("1500x900")
-
-    top = tk.Frame(root)
-    top.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
-
-    title_var = tk.StringVar(value="Alignment Review")
-    title_label = tk.Label(top, textvariable=title_var, font=("Helvetica", 14, "bold"))
-    title_label.pack(side=tk.LEFT, padx=8)
-
-    btn_prev = tk.Button(top, text="← Prev")
-    btn_prev.pack(side=tk.RIGHT, padx=6)
-    btn_next = tk.Button(top, text="Next →")
-    btn_next.pack(side=tk.RIGHT, padx=6)
-
-    mode_var = tk.StringVar(value="Aligned (Unsigned Area)")
-    mode_box = ttk.Combobox(
-        top,
-        textvariable=mode_var,
-        values=[
-            "Aligned (Release)",
-            "Aligned (Unsigned Area)",
-            "Aligned (Signed Area)",
-            "Aligned (Squared Error)",
-        ],
-        state="readonly",
-        width=28,
+    viewer_result = run_curve_comparison_viewer(
+        window_title="Alignment Review",
+        tab_specs={
+            **tab_specs,
+            "Ball": {
+                **tab_specs["Ball"],
+                "release_frames_left": ball_release_frames,
+                "release_frames_right": ball_release_frames,
+            },
+        },
+        right_mode_label="Aligned (Release)",
+        release_frames=release_frames,
     )
-    mode_box.pack(side=tk.RIGHT, padx=12)
-    mode_label = tk.Label(top, text="Right Plot:")
-    mode_label.pack(side=tk.RIGHT)
-
-    notebook = ttk.Notebook(root)
-    notebook.pack(fill=tk.BOTH, expand=True)
-
-    fig_map: dict[str, Any] = {}
-    ax_map: dict[str, list[Any]] = {}
-    canvas_map: dict[str, Any] = {}
-    stats_map: dict[str, tuple[Any, Any]] = {}
-
-    for tab in tab_names:
-        frame = ttk.Frame(notebook)
-        notebook.add(frame, text=tab)
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.92])
-        canvas = FigureCanvasTkAgg(fig, master=frame)
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        stats_frame = tk.Frame(frame)
-        stats_frame.pack(fill=tk.X, padx=10, pady=(0, 8))
-        left_stats = tk.Label(
-            stats_frame,
-            text="",
-            justify=tk.LEFT,
-            anchor="w",
-            font=("Helvetica", 10),
-        )
-        left_stats.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-        right_stats = tk.Label(
-            stats_frame,
-            text="",
-            justify=tk.LEFT,
-            anchor="w",
-            font=("Helvetica", 10),
-        )
-        right_stats.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0))
-
-        fig_map[tab] = fig
-        ax_map[tab] = list(axes)
-        canvas_map[tab] = canvas
-        stats_map[tab] = (left_stats, right_stats)
-
-    def _format_dataset_stats(dfs: dict[str, pd.DataFrame], curve: str) -> str:
-        total_points = 0
-        finite_points = 0
-        lengths: list[int] = []
-        curves: list[np.ndarray] = []
-
-        for df in dfs.values():
-            if curve not in df.columns:
-                continue
-            y = df[curve].to_numpy(dtype=float)
-            total_points += int(y.size)
-            finite_mask = np.isfinite(y)
-            finite_count = int(np.sum(finite_mask))
-            finite_points += finite_count
-            if finite_count == 0:
-                continue
-            y_valid = y[finite_mask]
-            lengths.append(len(y_valid))
-            curves.append(y_valid)
-
-        n_visible = len(curves)
-        if n_visible == 0:
-            return "Visible throws: 0 | No finite data"
-
-        stacked = np.concatenate(curves)
-        max_len = max(len(c) for c in curves)
-        padded = np.vstack([np.pad(c, (0, max_len - len(c)), constant_values=np.nan) for c in curves])
-        pointwise_std = np.nanstd(padded, axis=0)
-        finite_pct = (100.0 * finite_points / total_points) if total_points else 0.0
-
-        return (
-            f"Visible throws: {n_visible} | "
-            f"Mean: {np.nanmean(stacked):.3f} | Std: {np.nanstd(stacked):.3f}\n"
-            f"Avg len: {np.mean(lengths):.1f}f (min {np.min(lengths)} / max {np.max(lengths)}) | "
-            f"Avg framewise std: {np.nanmean(pointwise_std):.3f} | Finite: {finite_pct:.1f}%"
-        )
-
-    def _plot_dataset(ax, dfs: dict[str, pd.DataFrame], curve: str, label: str, ylabel: str, show_release: bool):
-        ax.set_title(label)
-        ax.set_xlabel("Frame")
-        ax.set_ylabel(ylabel)
-        ax.grid(alpha=0.25)
-
-        curves = []
-        for df in dfs.values():
-            if curve not in df.columns:
-                continue
-            y = df[curve].to_numpy(dtype=float)
-            x = df["frame"].to_numpy(dtype=float) if "frame" in df.columns else np.arange(len(y), dtype=float)
-            valid = np.isfinite(x) & np.isfinite(y)
-            if not np.any(valid):
-                continue
-            curves.append(y[valid])
-            ax.plot(x[valid], y[valid], color="gray", alpha=0.18, linewidth=1)
-
-        if curves:
-            max_len = max(len(c) for c in curves)
-            padded = np.vstack([np.pad(c, (0, max_len - len(c)), constant_values=np.nan) for c in curves])
-            mean_curve = np.nanmean(padded, axis=0)
-            std_curve = np.nanstd(padded, axis=0)
-            x_mean = np.arange(len(mean_curve), dtype=float)
-            ax.plot(x_mean, mean_curve, color="orange", linewidth=2, label="Mean")
-            ax.fill_between(x_mean, mean_curve - std_curve, mean_curve + std_curve, color="orange", alpha=0.2)
-
-        if show_release and cropped_phases_df is not None and "cropped_release_frame" in cropped_phases_df.columns:
-            rel = pd.to_numeric(cropped_phases_df["cropped_release_frame"], errors="coerce").dropna()
-            if len(rel):
-                ax.axvline(float(rel.mean()), color="red", linestyle="--", linewidth=1.5, label="Avg release")
-
-        ax.legend(loc="best", fontsize=8)
-
-    def refresh():
-        current_tab = notebook.tab(notebook.select(), "text")
-        spec = tab_specs[current_tab]
-        curves = spec["curves"]
-        if not curves:
-            return
-        idx = curve_index[current_tab] % len(curves)
-        curve = curves[idx]
-        curve_index[current_tab] = idx
-        selected_mode = mode_var.get()
-
-        title_var.set(
-            f"{current_tab}: {curve} ({idx + 1}/{len(curves)})  |  Right={selected_mode}  |  "
-            "Use ←/→ or Prev/Next to change curve"
-        )
-
-        unaligned = spec["unaligned"]
-        aligned = spec["mode_sets"].get(selected_mode, {})
-
-        for ax in ax_map[current_tab]:
-            ax.cla()
-
-        _plot_dataset(
-            ax=ax_map[current_tab][0],
-            dfs=unaligned,
-            curve=curve,
-            label="Unaligned",
-            ylabel=spec["ylabel"],
-            show_release=spec["show_release"],
-        )
-
-        if aligned:
-            _plot_dataset(
-                ax=ax_map[current_tab][1],
-                dfs=aligned,
-                curve=curve,
-                label=selected_mode,
-                ylabel=spec["ylabel"],
-                show_release=spec["show_release"],
-            )
-        else:
-            ax = ax_map[current_tab][1]
-            ax.set_title(selected_mode)
-            ax.set_axis_off()
-            ax.text(
-                0.5,
-                0.5,
-                "No data for this mode",
-                transform=ax.transAxes,
-                ha="center",
-                va="center",
-            )
-
-        left_stats_label, right_stats_label = stats_map[current_tab]
-        left_stats_label.configure(text="Unaligned Stats\n" + _format_dataset_stats(unaligned, curve))
-        if aligned:
-            right_stats_label.configure(text=f"{selected_mode} Stats\n" + _format_dataset_stats(aligned, curve))
-        else:
-            right_stats_label.configure(text=f"{selected_mode} Stats\nVisible throws: 0 | No data")
-
-        fig_map[current_tab].suptitle(
-            f"{current_tab} Alignment Review — {curve}",
-            fontsize=12,
-            fontweight="bold",
-        )
-        fig_map[current_tab].tight_layout(rect=[0.0, 0.0, 1.0, 0.92])
-        canvas_map[current_tab].draw()
-
-    def next_curve(event=None):
-        current_tab = notebook.tab(notebook.select(), "text")
-        curve_index[current_tab] += 1
-        refresh()
-
-    def prev_curve(event=None):
-        current_tab = notebook.tab(notebook.select(), "text")
-        curve_index[current_tab] -= 1
-        refresh()
-
-    btn_next.configure(command=next_curve)
-    btn_prev.configure(command=prev_curve)
-
-    root.bind("<Right>", next_curve)
-    root.bind("<Left>", prev_curve)
-    notebook.bind("<<NotebookTabChanged>>", lambda e: refresh())
-    mode_box.bind("<<ComboboxSelected>>", lambda e: refresh())
-
-    refresh()
-    root.mainloop()
 
     return {
         "metrics_dir": str(metrics_dir),
-        "tabs_loaded": tab_names,
-        "angle_curve_count": len(angle_curves),
-        "keypoint_curve_count": len(keypoint_curves),
-        "ball_curve_count": len(ball_curves),
+        **viewer_result,
     }

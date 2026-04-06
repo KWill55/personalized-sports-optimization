@@ -55,6 +55,12 @@ FPS = int(cfg.get("player_tracking_fps", 30))
 DATA_DIR = ROOT / "data" / ATHLETE
 assert DATA_DIR.exists(), f"DATA_DIR not found: {DATA_DIR}"
 session_dir = DATA_DIR / SESSION
+PRIMARY_DIR = session_dir / "primary_measurements"
+if not PRIMARY_DIR.exists():
+    PRIMARY_DIR = session_dir / "metrics"
+SECONDARY_DIR = session_dir / "secondary_measurements"
+if not SECONDARY_DIR.exists():
+    SECONDARY_DIR = session_dir / "metrics"
 
 # Discover sessions for this athlete (folders under data/<ATHLETE>)
 SESSIONS = sorted([p.name for p in DATA_DIR.iterdir() if p.is_dir()])
@@ -83,7 +89,7 @@ def load_summary_stats(session_dir: Path) -> pd.DataFrame:
     Reads metrics/summary_stats_merged.csv and returns a DataFrame with an int 'clip' column.
     Tries a few common id columns; falls back to extracting digits from 'file' if needed.
     """
-    p = session_dir / "metrics" / "summary_stats_merged.csv"
+    p = PRIMARY_DIR / "summary_stats_merged.csv"
     if not p.exists():
         return pd.DataFrame()
 
@@ -111,7 +117,9 @@ def list_angle_csvs(athlete: str, sessions: list[str], root: Path = ROOT) -> pd.
     rows = []
     base = root / "data" / athlete
     for s in sessions:
-        angles_dir = base / s / "metrics" / "3d_angles"
+        angles_dir = base / s / "secondary_measurements" / "3d_angles"
+        if not angles_dir.exists():
+            angles_dir = base / s / "metrics" / "3d_angles"
         if not angles_dir.exists():
             continue
         for p in sorted(angles_dir.glob("*_angles.csv")):
@@ -770,7 +778,7 @@ class Skeleton3DWidget(tk.Frame):
 
     # --------- Data loading ---------
     def load_from_session(self, session_dir: Path):
-        key_dir = session_dir / "metrics" / "3d_keypoints"
+        key_dir = PRIMARY_DIR / "3d_keypoints"
         csv = next((p for p in sorted(key_dir.glob("*.csv"))), None)
         if not csv:
             self._draw_text(f"No 3D keypoints in:\n{key_dir}")
@@ -1089,7 +1097,7 @@ def main():
     ball_dir  = session_dir / "videos" / "ball_tracking" / "raw"
     two_d_map = list_videos_with_clips(two_d_dir)   # dict[int, Path]
     ball_map  = list_videos_with_clips(ball_dir)    # dict[int, Path]
-    keypoints_dir = session_dir / "metrics" / "3d_keypoints"
+    keypoints_dir = PRIMARY_DIR / "3d_keypoints"
     kp_map = list_keypoints_with_clips(keypoints_dir)
 
     factory = SetupGui()

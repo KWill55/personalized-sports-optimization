@@ -99,11 +99,19 @@ def combine_angles_dfs(angles_dfs: dict[str, pd.DataFrame], session_id: str) -> 
 def crop_to_freethrow(
     angles_dfs: dict[str, pd.DataFrame],
     phases_df: pd.DataFrame,
-    start_col: str = "raw_windup_start",
-    end_col: str = "raw_followthrough_end",
+    start_col: str = "crop_start_frame",
+    end_col: str = "crop_end_frame",
+    phase_fps: float | int | None = None,
+    data_fps: float | int | None = None,
 ) -> dict[str, pd.DataFrame]:
     cropped = {}
     successful_crops = 0
+
+    phase_fps_val = float(phase_fps) if phase_fps else None
+    data_fps_val = float(data_fps) if data_fps else None
+    fps_ratio = 1.0
+    if phase_fps_val and data_fps_val and phase_fps_val > 0 and data_fps_val > 0:
+        fps_ratio = data_fps_val / phase_fps_val
 
     for file_name, df in angles_dfs.items():
         
@@ -129,16 +137,28 @@ def crop_to_freethrow(
             # print(f"[WARNING] Missing phase values for {file_name}, skipping.")
             continue
 
-        start = int(start)
-        end = int(end)
+        start = int(round(float(start) * fps_ratio))
+        end = int(round(float(end) * fps_ratio))
 
         # Ensure frame column exists
         if "frame" not in df.columns:
             df = df.copy()
             df.insert(0, "frame", range(len(df)))
 
+        if len(df) == 0:
+            continue
+
+        min_frame = int(df["frame"].min())
+        max_frame = int(df["frame"].max())
+        start = max(min_frame, start)
+        end = min(max_frame, end)
+        if end < start:
+            continue
+
         # Crop DataFrame
         cropped_df = df[(df["frame"] >= start) & (df["frame"] <= end)].copy()
+        if cropped_df.empty:
+            continue
         cropped_df.reset_index(drop=True, inplace=True)
 
         cropped_df["frame"] = np.arange(len(cropped_df))

@@ -4,25 +4,29 @@ from calibration.calibration_capture_gui import CalibrationCaptureGui
 from recording.recording_node import RecordingNode
 from recording.recording_capture_gui import RecordingCaptureGui
 
-from player_tracking.pose_2d_node import Pose2dNode
-from player_tracking.pose_3d_node import Pose3dNode
-
-from ball_tracking.ball_detection_node import BallDetectionNode
+from primary_measurements.pose_2d_node import Pose2dNode
+from primary_measurements.pose_3d_node import Pose3dNode
+from primary_measurements.ball_trajectory_node import BallTrajectoryNode
+from primary_measurements.side_pose_node import SidePoseNode
+from primary_measurements.verify_detection_coverage_node import VerifyDetectionCoverageNode
+from primary_measurements.verify_primary_measurements_node import VerifyPrimaryMeasurementsNode
 
 from preprocessing.alignment_node import AlignmentNode
+from preprocessing.crop_freethrows_node import CropFreethrowsNode
 from preprocessing.phases_node import PhasesNode
-from preprocessing.combine_player_feeds_node import CombinePlayerFeedsNode
+from recording.combine_player_feeds_node import CombinePlayerFeedsNode
 
-from evaluation.grading_node import GradingNode
+from evaluation.golden_template_node import GoldenTemplateNode
+from evaluation.consistency_node import ConsistencyNode
 from pathlib import Path
 
 import subprocess
 import sys
 
-import cv2
 import yaml
 
 from utils.io_utils import load_config
+from utils.view_images import collect_images_from_folders, view_images
 
 """
 Purpose: orchestrate entire system
@@ -105,13 +109,16 @@ def _refresh_node_configs(cfg: dict, nodes: list[object]) -> None:
             pass
 
 
-def _run_python_script(script_path: Path) -> None:
+def _run_python_script(script_path: Path, args: list[str] | None = None) -> None:
     project_root = Path(__file__).resolve().parents[1]
     resolved = script_path if script_path.is_absolute() else project_root / script_path
     if not resolved.exists():
         print(f"\n[WARNING] Script not found: {resolved}")
         return
-    subprocess.run([sys.executable, str(resolved)], check=False)
+    cmd = [sys.executable, str(resolved)]
+    if args:
+        cmd.extend(args)
+    subprocess.run(cmd, check=False)
 
 
 def _verify_calibration_summary(cfg: dict) -> None:
@@ -155,33 +162,13 @@ def _verify_calibration_images(cfg: dict) -> None:
     right_dir = _resolve_cfg_path(cfg["paths"]["calib_mono_right"], cfg)
     pair_dir = _resolve_cfg_path(cfg["paths"]["calib_pairs"], cfg)
 
-    img_paths = (
-        sorted(left_dir.glob("*.png"))
-        + sorted(right_dir.glob("*.png"))
-        + sorted(pair_dir.glob("*.png"))
-    )
+    img_paths = collect_images_from_folders([left_dir, right_dir, pair_dir], recursive=False)
 
     if not img_paths:
         print("\n[WARNING] No calibration images found.")
         return
 
-    print(f"\nShowing {len(img_paths)} calibration image(s).")
-    print("Controls: any key = next image, ESC = exit")
-
-    for img_path in img_paths:
-        img = cv2.imread(str(img_path))
-        if img is None:
-            continue
-
-        preview = img.copy()
-        label = f"{img_path.parent.name}/{img_path.name}"
-        cv2.putText(preview, label, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.imshow("Calibration Image Verification", preview)
-        key = cv2.waitKey(0) & 0xFF
-        if key == 27:
-            break
-
-    cv2.destroyAllWindows()
+    view_images(img_paths, window_title="Calibration Image Verification", show_parent_in_label=True)
 
 
 def main():
@@ -205,23 +192,33 @@ def main():
     pose_2d_node = Pose2dNode(cfg=cfg)
     pose_3d_node = Pose3dNode(cfg=cfg)
 
-    ball_detection_node = BallDetectionNode(cfg=cfg)
+    ball_trajectory_node = BallTrajectoryNode(cfg=cfg)
+    side_pose_node = SidePoseNode(cfg=cfg)
+    verify_detection_coverage_node = VerifyDetectionCoverageNode(cfg=cfg)
+    verify_primary_measurements_node = VerifyPrimaryMeasurementsNode(cfg=cfg)
 
-    alignement_node = AlignmentNode(cfg=cfg)
+    alignment_node = AlignmentNode(cfg=cfg)
+    crop_freethrows_node = CropFreethrowsNode(cfg=cfg)
     phases_node = PhasesNode(cfg=cfg)
     combine_player_feeds_node = CombinePlayerFeedsNode(cfg=cfg)
 
-    grading_node = GradingNode(cfg=cfg)
+    grading_node = GoldenTemplateNode(cfg=cfg)
+    consistency_node = ConsistencyNode(cfg=cfg)
 
     config_nodes = [
         calibration_node,
         recording_node,
         pose_2d_node,
         pose_3d_node,
-        ball_detection_node,
-        alignement_node,
+        ball_trajectory_node,
+        side_pose_node,
+        verify_detection_coverage_node,
+        verify_primary_measurements_node,
+        alignment_node,
+        crop_freethrows_node,
         phases_node,
         combine_player_feeds_node,
+        consistency_node,
         grading_node,
     ]
 
@@ -229,44 +226,9 @@ def main():
     # =========================================================
     # Repl loop to allow user selection for operation repeatedly
     # =========================================================
-
-
-    # record calibration images -- gui to record all calibration images 
-    # verify calibration images -- gui to view existing 
-    # calibrate -- performs intrinsic/extrinsic calibration
-    # verify calibration -- shows intrinsic and extrinsic parameters
-
-    # record new 
-    # view data
-
-    # combine player videos -- combines player videos in current session if necessary 
-
-    # extract player 2D
-    # extract player 3D 
-    # extract ball 
-    # compute angles 3D
-
-    # draw kps 2D
-    # view data
-    # draw kps 3D
-    # view kps_3D 
-    # draw trajectories -- draws ball trajectories
-    # view data
-    
-    # label phases -- TODO later determines windup, release, and followthrough phases for each throw in session
-    # verify phases -- TODO later gui to verify phases were aligned properly 
-    # trim freethrows -- TODO later eventually have a script to trim freethrows
-    # verify trimmed -- TODO later
-   
-    # align freethrows
-    # draw alignment
-
-    # TODO later grade 
-
-    # TODO later summarize data -- gui that summarizes all data for session 
-    # TODO later live display -- real time gui (C++) that shows current angles, etc optimal form or not based on data
-
     # TODO maybe clear screen after each selection by seeking left the cursor 
+    # TODO more options for displaying data too 
+    # TODO display what data is available (currently created) for the given session 
 
     try:
         while True:
@@ -284,35 +246,52 @@ def main():
 
             elif (command == "help"):
                 print("\nAvailable commands:")
-                print("  create athlete") 
-                print("  change athlete")
-                print("  create session")
-                print("  change session")
 
-                print("  view cameras")
-                print("  view data")
+                # TODO option to run entire pipeline assuming data is recorded, other assumption options, etc? 
+                
+                print("\nPress 'q' to quit") 
 
-                print("  record calibration images") # openCV canvas lingers, but ok i guess 
-                print("  verify calibration images") # TODO add arrow key functionality and better display words
-                print("  calibrate")
-                print("  verify calibration")
+                print("\nConfiguration:") 
+                print("  - create athlete | change athlete")
+                print("  - create session | change session") 
 
-                print("  record new") # TODO add what free throw it is at top 
+                print("\nShared Utils:") 
+                print("  - view cameras")
+                print("  - view images")
+                print("  - view videos")
+                print("  - view project")
 
-                print("  combine feeds") 
-                print("  extract 2d")  
-                print("  extract 3d") 
-                print("  extract trajectories")  
-                print("  compute angles 3d") 
-                print("  draw kps 2d") 
-                print("  draw kps 3d") # does the same as view 3d for now 
-                print("  view kps 3d") # does the same as draw 3d for now 
-                print("  draw trajectories") # not what i want yet 
-                print("  align") # not tested yet 
-                print("  draw alignment")
-                print("  view project")
-                print("  detect ball") # not tested yet 
-                print("  q")
+                print("\nCalibration:") 
+                print("  1. record calibration images | view calibration images") 
+                print("  2. calibrate ")
+                print("  3. verify calibration")
+
+                print("\nRecording Free Throws:") 
+                print("  1. record new") 
+                print("  2. combine feeds") 
+
+                print("\nPrimary Measurement Extraction:") 
+                print("  - pose 2d")  
+                print("  - pose 3d") 
+                print("  - ball trajectory")  
+                print("  - side pose")
+                print("  - label shot outcomes")
+                print("  verify primary measurements")
+
+                print("\nPreprocessing:") 
+                print("  1. label release | verify release")
+                print("  2. align primary measurements | verify alignment")
+                print("  3. crop primary measurements | verify cropping")
+
+                print("\nCompute Secondary Measurements:") 
+                print("  - compute 3d angles") 
+                print("  verify secondary measurements gui")
+
+                print("\nEvaluation:") 
+                print("  - summarize data")
+                print("  - shot consistency")
+                print("  - golden template comparison")
+                print("  - real-time feedback gui")
 
             elif (command == "create athlete"):
                 new_athlete = input("Enter new athlete name: ").strip()
@@ -397,7 +376,7 @@ def main():
                 else:
                     print("\n[WARNING] Unknown mode. Use both/mono/stereo.")
 
-            elif (command == "verify calibration images"):
+            elif (command in  ("verify calibration images", "view calibration images")):
                 _verify_calibration_images(cfg)
 
             elif (command == "calibrate"):
@@ -408,7 +387,7 @@ def main():
                 _verify_calibration_summary(cfg)
                 inspect = input("Open detailed visual inspector? [y/N]: ").strip().lower()
                 if inspect in ("y", "yes"):
-                    _run_python_script(Path("src/pipeline/01_collection/player_calibration/inspect_calibration.py"))
+                    _run_python_script(Path("src/utils/inspect_calibration.py"))
 
             elif (command == "record new"):
                 print("\nLaunching recording GUI...")
@@ -417,6 +396,7 @@ def main():
             elif (
                 command in (
                     "view data",
+                    "view videos",
                     "verify raw",
                     "view raw",
                     "verify/view raw",
@@ -430,49 +410,82 @@ def main():
                 print("\nOpening video player (select folder in GUI)...")
                 _run_python_script(Path("src/utils/video_player.py"))
 
+            elif (command in ("crop freethrows", "crop")):
+                print("\nCropping aligned freethrows into fixed release-centered windows (copy only)...")
+                crop_freethrows_node.run()
+
+            elif (command in ("verify cropping", "verify crop", "view cropping", "crop viewer")):
+                print("\nOpening crop verification viewer...")
+                _run_python_script(Path("src/preprocessing/crop_freethrows_node.py"), args=["--view"])
+
+            elif (command in ("label phases", "label phase", "label release")):
+                print("\nLaunching phase labeling step...")
+                phases_node.run()
+
+            elif (command in ("verify release", "verify phases", "view phases")):
+                print("\nOpening phase verification GUI...")
+                phases_node.verify()
+
             elif (command == "align"):
-                print("\nRunning alignment pipeline...")
-                alignement_node.run()
+                print("\nRunning release-only alignment...")
+                alignment_node.run()
+
+            elif (command in ("verify alignment", "view alignment", "alignment viewer")):
+                print("\nOpening alignment verification viewer...")
+                _run_python_script(Path("src/preprocessing/alignment_node.py"), args=["--view"])
 
             elif (command in ("combine feeds", "combine player videos", "combine player feeds")):
                 print("\nCombining player feeds...")
                 combine_player_feeds_node.run()
 
-            elif (command in ("extract 2d", "extract player 2d")):
+            elif (command in ("pose 2d", "extract 2d", "extract player 2d")):
                 print("\nRunning 2D pose extraction...")
                 pose_2d_node.run()
             
-            elif (command in ("extract 3d", "extract player 3d")):
-                print("\nRunning 3D pose reconstruction...")
-                pose_3d_node.run()
+            elif (command in ("pose 3d", "triangulate 3d", "extract player 3d")):
+                print("\nRunning 3D triangulation from extracted 2D keypoints...")
+                pose_3d_node.triangulate()
 
-            elif (command in ("extract ball", "detect ball", "ball detect", "extract trajectories")):
-                print("\nRunning ball detection pipeline...")
-                ball_detection_node.run()
+            elif (command in ("ball traj", "ball trajectory", "extract ball", "detect ball", "ball detect", "extract trajectories")):
+                print("\nRunning ball trajectory extraction pipeline (side camera)...")
+                ball_trajectory_node.run()
+
+            elif (command in ("side pose", "extract side pose")):
+                print("\nRunning side-camera pose extraction (includes hand keypoints + ROI option)...")
+                side_pose_node.run()
+
+            elif (command in ("verify detection coverage", "verify coverage", "detection coverage")):
+                print("\nRunning detection coverage verification (2D/3D/ball)...")
+                verify_detection_coverage_node.run()
+
+            elif (command in ("label shot outcomes", "label outcomes", "shot outcomes")):
+                print("\nOpening shot outcomes labeling GUI...")
+                _run_python_script(Path("src/primary_measurements/label_shot_outcomes_gui.py"))
+
+            elif (command in ("verify primary measurements", "verify primary", "primary verify gui")):
+                print("\nOpening primary measurements verification GUI...")
+                verify_primary_measurements_node.run()
 
             elif (command in ("compute angles 3d", "compute 3d angles")):
-                print("\nComputing 3D-derived kinematics (angles/velocities/accelerations)...")
-                print("Note: this command re-runs the 3D pipeline from existing 2D keypoints.")
-                pose_3d_node.run()
-
-            elif (command in ("draw kps 2d", "draw keypoints 2d")):
-                _run_python_script(Path("src/pipeline/02_extraction/player_tracking/draw_2d_keypoints.py"))
-
-            elif (command in ("draw kps 3d", "draw keypoints 3d", "view kps 3d", "view keypoints 3d", "view kps_3d")):
-                print("\nOpening 3D keypoint viewer...")
-                _run_python_script(Path("src/utils/mp33_3d_viewer.py"))
-
-            elif (command in ("draw trajectories", "draw ball trajectories")):
-                print("\nOpening trajectory review GUI...")
-                _run_python_script(Path("src/pipeline/02_extraction/ball_tracking/detect_makes_gui2.py"))
-
-            elif (command in ("draw alignment", "view alignment")):
-                print("\nOpening alignment review GUI...")
-                alignement_node.view()
+                print("\nComputing 3D-derived kinematics (angles/velocities/accelerations) from existing 3D keypoints...")
+                pose_3d_node.compute_secondary()
 
             elif (command in ("view project", "project gui")):
                 print("\nOpening project GUI...")
                 _run_python_script(Path("src/utils/project_gui.py"))
+
+            elif (command in ("golden template", "run golden template", "evaluate golden template")):
+                compare_athlete = str(cfg.get("athlete", "") or "")
+                compare_session = str(cfg.get("session", "") or "")
+                print(
+                    f"\nOpening golden-template evaluation viewer "
+                    f"(compare athlete={compare_athlete}, session={compare_session})..."
+                )
+                grading_node.run(compare_athlete=compare_athlete, compare_session=compare_session)
+
+            elif (command in ("shot consistency", "consistency", "run consistency")):
+                print("\nOpening shot consistency viewer...")
+                consistency_node.run()
 
             elif (command == "q"):
                 print("\nClosing program...")
@@ -480,13 +493,6 @@ def main():
 
             else:
                 print("\n[WARNING] Unknown command. Type help]")
-        
-
-            # TODO maybe give options for what the user wants to do or display what data is available
-            #   user might only want to open GUIs for instance and they might want to only record more data  
-            # switch type statement to see what the user wants to do repeatedly like a repl loop?
-            # or boolean values at the top that will say what the user wants to do 
-            # probably make a node like UI or UX node for this 
 
     except KeyboardInterrupt:
         pass
@@ -504,13 +510,23 @@ def main():
         except Exception: pass
         try: pose_3d_node.close()
         except Exception: pass
-        try: ball_detection_node.close()
+        try: ball_trajectory_node.close()
         except Exception: pass
-        try: alignement_node.close()
+        try: side_pose_node.close()
+        except Exception: pass
+        try: verify_detection_coverage_node.close()
+        except Exception: pass
+        try: verify_primary_measurements_node.close()
+        except Exception: pass
+        try: alignment_node.close()
+        except Exception: pass
+        try: crop_freethrows_node.close()
         except Exception: pass
         try: phases_node.close()
         except Exception: pass
         try: combine_player_feeds_node.close()
+        except Exception: pass
+        try: consistency_node.close()
         except Exception: pass
         try: grading_node.close()
         except Exception: pass

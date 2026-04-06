@@ -2,26 +2,23 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from preprocessing.phases_lib import run_phase_verification_gui, run_phases_pipeline
+from evaluation.consistency_lib import run_consistency_pipeline
 from utils.io_utils import load_config
 
 
-class PhasesNode:
-    """Orchestrates release-frame preprocessing."""
+class ConsistencyNode:
+    """Orchestrates athlete form-consistency viewer."""
 
     def __init__(self, cfg: Dict[str, Any] | None = None, config_filename: str = "project_config.yaml") -> None:
         self.cfg = cfg if cfg is not None else load_config(config_filename)
 
     def run(self) -> dict[str, Any]:
-        return run_phases_pipeline(self.cfg)
-
-    def verify(self) -> dict[str, Any]:
-        return run_phase_verification_gui(self.cfg)
+        return run_consistency_pipeline(self.cfg)
 
     def close(self) -> None:
         pass
 
 
 if __name__ == "__main__":
-    result = PhasesNode().run()
-    print(f"Release-frame pipeline complete: {result}")
+    result = ConsistencyNode().run()
+    print(f"Consistency evaluation complete: {result}")

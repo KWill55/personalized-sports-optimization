@@ -14,7 +14,7 @@ import re
 # =========================
 # Config
 # =========================
-config_path = Path(__file__).resolve().parents[1] / "project_config.yaml"
+config_path = Path(__file__).resolve().parents[2] / "project_config.yaml"
 with open(config_path, "r") as f:
     cfg = yaml.safe_load(f)
 
@@ -25,12 +25,17 @@ FPS = cfg["player_tracking_fps"]
 # =========================
 # Paths and Directories
 # =========================
-base_dir = Path(__file__).resolve().parents[1]
+base_dir = Path(__file__).resolve().parents[2]
 session_dir = base_dir / "data" / ATHLETE / SESSION
-default_angles_dir = session_dir / "metrics" / "angles"  # overrideable in UI
+default_angles_dir = session_dir / "secondary_measurements" / "3d_angles"  # overrideable in UI
+if not default_angles_dir.exists():
+    default_angles_dir = session_dir / "metrics" / "angles"
+if not default_angles_dir.exists():
+    default_angles_dir = session_dir / "metrics" / "3d_angles"
 
 # Heuristics for where phases might live (tried in order)
 PHASE_FILE_CANDIDATES = [
+    session_dir / "primary_measurements" / "freethrow_phases.csv",
     session_dir / "phases" / "freethrow_phases.csv",
     session_dir / "metrics" / "phases" / "freethrow_phases.csv",
     session_dir / "freethrow_phases.csv",

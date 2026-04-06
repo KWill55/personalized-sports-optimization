@@ -1,5 +1,5 @@
-athlete: tyler_haws
-session: session_2025-10-9
+athlete: greg
+session: session_2025-12-17
 inner_corners:
 - 10
 - 7
@@ -24,6 +24,52 @@ freethrow_name_prefix: freethrow
 threshold_detect: 0.7
 threshold_fl: 10
 threshold_pp: 20
+ball_detection_stereo_conf: 0.3
+ball_detection_stereo_max_jump_px: 360
+ball_detection_stereo_roi_mode: middle_top_75
+ball_detection_stereo_stop_after_miss_frames: 30
+ball_detection_enable_stereo: false
+stereo_release_distance_threshold_px: 30
+stereo_release_ball_above_min_gap_px: 0.0
+stereo_release_disconnect_persist_frames: 2
+stereo_release_ball_scale_mult: 0.0
+stereo_release_require_both_cameras: false
+side_release_min_ball_conf: 0.2
+side_release_distance_threshold_px: 50
+side_release_ball_above_min_gap_px: 0.0
+side_release_min_hits: 2
+side_release_roi_x_min: 0.25
+side_release_roi_x_max: 0.75
+side_release_roi_y_min: 0.1
+side_release_roi_y_max: 0.95
+side_release_roi_select_interactively: true
+adaptive_crop_min_trials: 10
+adaptive_crop_min_pct: 0.0
+ball_crop_mode: release_to_fixed_window
+ball_crop_post_frames: 60
+ball_crop_drop_below_release_px: 0.0
+ball_crop_persist_frames: 2
+ball_crop_release_search_radius_frames: 8
+ball_yolo_dataset_root: data/basketball_dataset
+ball_yolo_data_yaml: basketball.yaml
+ball_yolo_sources:
+- side
+- stereo_left
+- stereo_right
+ball_yolo_frame_stride: 2
+ball_yolo_min_conf: 0.25
+ball_yolo_include_empty_labels: true
+ball_yolo_val_split: 0.2
+ball_yolo_seed: 42
+ball_yolo_max_trials: 0
+ball_yolo_model: notebooks/yolo11m.pt
+ball_yolo_epochs: 50
+ball_yolo_imgsz: 960
+ball_yolo_batch: 16
+ball_yolo_workers: 8
+ball_yolo_patience: 15
+ball_yolo_runs_dir: experiments/ball_yolo_runs
+ball_yolo_run_name: greg_session_2025-12-17
 paths:
   analysis: data/{athlete}/{session}/analysis
   datasets: data/{athlete}/{session}/analysis/datasets
@@ -37,15 +83,17 @@ paths:
   calib_mono_right: data/{athlete}/{session}/calibration/calib_images/mono_right
   mono_intrinsics: data/{athlete}/{session}/calibration/mono_intrinsics
   stereo_calibration: data/{athlete}/{session}/calibration/stereo_calibration
-  metrics: data/{athlete}/{session}/metrics
-  keypoints_2d: data/{athlete}/{session}/metrics/2d_keypoints
-  keypoints_3d: data/{athlete}/{session}/metrics/3d_keypoints
-  angles: data/{athlete}/{session}/metrics/3d_angles
+  primary_measurements: data/{athlete}/{session}/primary_measurements
+  secondary_measurements: data/{athlete}/{session}/secondary_measurements
+  metrics: data/{athlete}/{session}/primary_measurements
+  keypoints_2d: data/{athlete}/{session}/primary_measurements/2d_keypoints
+  keypoints_3d: data/{athlete}/{session}/primary_measurements/3d_keypoints
+  angles: data/{athlete}/{session}/secondary_measurements/3d_angles
   shortened_angles: experiments/
-  velocities: data/{athlete}/{session}/metrics/3d_velocities
-  accelerations: data/{athlete}/{session}/metrics/3d_accelerations
-  ball_tracking_metrics: data/{athlete}/{session}/metrics/ball_tracking_metrics
-  phases: data/{athlete}/{session}/metrics/freethrow_phases.csv
+  velocities: data/{athlete}/{session}/secondary_measurements/3d_velocities
+  accelerations: data/{athlete}/{session}/secondary_measurements/3d_accelerations
+  ball_tracking_metrics: data/{athlete}/{session}/primary_measurements/ball_tracking_metrics
+  phases: data/{athlete}/{session}/primary_measurements/freethrow_phases.csv
   features: data/{athlete}/{session}/analysis/datasets/features
   summary_stats: data/{athlete}/{session}/features/summary_stats
   time_series: data/{athlete}/{session}/features/time_series
