@@ -15,9 +15,7 @@ from utils.io_utils import load_config
 
 class RecordingNode:
     """
-    Thin orchestrator for recording subsystem.
-
-    Main entrypoint used by src/main.py.
+    orchestrator for recording subsystem.
     """
 
     def __init__(self, cfg: Dict[str, Any] | None = None, config_filename: str = "project_config.yaml") -> None:

@@ -1,4 +1,4 @@
-"""Preprocessing pipeline for combining left/right player feeds into synchronized stereo videos."""
+"""combining left/right player feeds into synchronized stereo videos."""
 
 from __future__ import annotations
 

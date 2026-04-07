@@ -15,7 +15,7 @@ from utils.io_utils import PROJECT_ROOT, load_config
 
 class RecordingCaptureGui:
     """
-    Class-based recording GUI for free throw capture.
+    recording GUI for free throw capture.
 
     Captures 3 feeds:
       - left (player tracking)

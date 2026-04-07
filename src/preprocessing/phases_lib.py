@@ -1,4 +1,4 @@
-"""Rules-based free-throw release-frame labeling."""
+"""Rules based free-throw release frame labeling"""
 
 from __future__ import annotations
 
@@ -25,68 +25,6 @@ def _to_base_name_dict(dfs: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     return out
 
 
-def _smooth(x: np.ndarray, window: int = 7) -> np.ndarray:
-    if len(x) == 0:
-        return x
-    if window < 3:
-        return x.astype(float, copy=True)
-    if window % 2 == 0:
-        window += 1
-    return pd.Series(x, dtype=float).rolling(window, center=True, min_periods=1).mean().to_numpy(dtype=float)
-
-
-def _robust_threshold(x: np.ndarray, mult: float = 3.0) -> tuple[float, float, float]:
-    finite = x[np.isfinite(x)]
-    if len(finite) == 0:
-        return 0.0, 0.0, 0.0
-    med = float(np.median(finite))
-    mad = float(np.median(np.abs(finite - med)))
-    scale = 1.4826 * mad
-    if not np.isfinite(scale) or scale <= 1e-8:
-        scale = float(np.std(finite)) if np.isfinite(np.std(finite)) else 0.0
-    return med, scale, med + mult * scale
-
-
-def _pick_release_frame(
-    elbow: np.ndarray,
-    shoulder: np.ndarray,
-    wrist_speed: np.ndarray,
-    fps: float,
-    arm_up_min_deg: float = 110.0,
-) -> int:
-    n = len(elbow)
-    if n == 0:
-        return 0
-
-    elbow_s = _smooth(elbow, 9)
-    wrist_peak = int(np.nanargmax(wrist_speed)) if np.isfinite(wrist_speed).any() else n // 2
-    lo = max(0, wrist_peak - int(0.45 * fps))
-    hi = min(n - 1, wrist_peak + int(0.45 * fps))
-
-    candidate_mask = np.zeros(n, dtype=bool)
-    candidate_mask[lo : hi + 1] = True
-
-    # When shoulder flex is high, the arm is in the shooting-up position.
-    if np.isfinite(shoulder).any():
-        shoulder_s = _smooth(shoulder, 9)
-        arm_up = shoulder_s >= float(arm_up_min_deg)
-        narrowed = candidate_mask & arm_up
-        if np.any(narrowed):
-            candidate_mask = narrowed
-
-    local_idx = np.where(candidate_mask & np.isfinite(elbow_s))[0]
-    if len(local_idx):
-        release = int(local_idx[int(np.nanargmax(elbow_s[local_idx]))])
-    else:
-        finite_elbow = np.where(np.isfinite(elbow_s))[0]
-        if len(finite_elbow):
-            release = int(finite_elbow[int(np.nanargmax(elbow_s[finite_elbow]))])
-        else:
-            release = wrist_peak
-
-    return int(np.clip(release, 0, n - 1))
-
-
 def run_phases_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
     metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
@@ -94,8 +32,7 @@ def run_phases_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
     side_pose_dir = metrics_dir / "side_pose_2d"
     side_hands_compat_dir = metrics_dir / "side_hand_tracking"
     side_hands_dir = side_pose_dir if side_pose_dir.exists() else side_hands_compat_dir
-    side_ball_csv_dir = metrics_dir / "raw_ball_trajectories"
-    side_ball_dir = side_ball_csv_dir 
+    side_ball_dir = metrics_dir / "raw_ball_trajectories"
     
     if not side_hands_dir.exists():
         raise FileNotFoundError(
@@ -136,8 +73,6 @@ def run_phases_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
         ball_valid = np.isfinite(bx) & np.isfinite(by) & np.isfinite(bconf) & (bconf >= min_ball_conf)
 
         hit_idx: list[int] = []
-        hand_valid = 0
-        evaluable = 0
         for i in range(n):
             if not ball_valid[i]:
                 continue
@@ -149,11 +84,8 @@ def run_phases_pipeline(cfg: dict[str, Any]) -> dict[str, Any]:
                 if np.isfinite(hx) and np.isfinite(hy):
                     dists.append(float(np.hypot(float(hx) - bx[i], float(hy) - by[i])))
                     ys.append(float(hy))
-            if ys:
-                hand_valid += 1
             if not dists or not ys:
                 continue
-            evaluable += 1
             min_dist = float(np.min(dists))
             hand_top_y = float(np.min(ys))
             ball_above_hands = bool(by[i] < (hand_top_y - above_gap_px))
@@ -290,7 +222,6 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
     metrics_dir = _format_path(cfg["paths"]["primary_measurements"], cfg)
     phases_path = _format_path(cfg["paths"]["phases"], cfg)
     keypoints_dir = _format_path(cfg["paths"]["keypoints_3d"], cfg)
-    angles_dir = _format_path(cfg["paths"]["angles"], cfg)
     ball_dir = metrics_dir / "raw_ball_trajectories"
     if not ball_dir.exists():
         ball_dir = metrics_dir / "cropped_ball_trajectory"
@@ -315,7 +246,6 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
     keypoints_dfs = _to_base_name_dict(load_csv_folder(keypoints_dir)) if keypoints_dir.exists() else {}
-    angles_dfs = _to_base_name_dict(load_csv_folder(angles_dir)) if angles_dir.exists() else {}
     ball_dfs = _to_base_name_dict(load_csv_folder(ball_dir)) if ball_dir.exists() else {}
 
     bases = _sort_bases(phases_df["base"].tolist())
@@ -337,7 +267,7 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
         "clip_idx": 0,
         "frame_idx": 0,
         "ball_frame_idx": 0,
-        "mode": "Angles",
+        "mode": "Keypoints",
         "playing": False,
         "edit_target": "raw_release_frame",
         "dirty": set(),
@@ -349,7 +279,6 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
         "release_ball_frame": 0,
         "n_clips": len(bases),
         "phase_row": None,
-        "angles_df": pd.DataFrame(),
         "keypoints_df": pd.DataFrame(),
         "ball_df": pd.DataFrame(),
     }
@@ -374,7 +303,7 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
     btn_play = Button(btn_play_ax, "Play/Pause")
     btn_save_clip = Button(btn_save_clip_ax, "Save Clip")
     btn_save_all = Button(btn_save_all_ax, "Save All")
-    radio = RadioButtons(mode_ax, ("Angles", "Keypoints", "Trajectory"), active=0)
+    radio = RadioButtons(mode_ax, ("Keypoints", "Trajectory"), active=0)
     mode_ax.set_title("Bottom Plot", fontsize=9)
     fig.text(
         0.02,
@@ -419,12 +348,10 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
 
         row = phases_by_base.get(base)
         state["phase_row"] = pd.Series(row) if row else None
-        state["angles_df"] = angles_dfs.get(base, pd.DataFrame())
         state["keypoints_df"] = keypoints_dfs.get(base, pd.DataFrame())
         state["ball_df"] = ball_dfs.get(base, pd.DataFrame())
 
         lengths = [
-            len(state["angles_df"]) if not state["angles_df"].empty else 0,
             len(state["keypoints_df"]) if not state["keypoints_df"].empty else 0,
         ]
         ball_lengths = [len(state["ball_df"]) if not state["ball_df"].empty else 0]
@@ -486,22 +413,7 @@ def run_phase_verification_gui(cfg: dict[str, Any]) -> dict[str, Any]:
     def _draw_data_panel() -> None:
         data_ax.clear()
         mode = state["mode"]
-        frame_idx = state["frame_idx"]
-
-        if mode == "Angles":
-            df = state["angles_df"]
-            if df.empty:
-                data_ax.text(0.5, 0.5, "No 3D angle data", transform=data_ax.transAxes, ha="center", va="center")
-            else:
-                n = len(df)
-                x = np.arange(n)
-                data_ax.plot(x, _safe_series(df, "elbow_flex_r", n), label="elbow_flex_r", linewidth=1.8)
-                if "shoulder_flex_r" in df.columns:
-                    data_ax.plot(x, _safe_series(df, "shoulder_flex_r", n), label="shoulder_flex_r", linewidth=1.2)
-                data_ax.set_ylabel("Degrees")
-                data_ax.set_title("Angle Curves")
-
-        elif mode == "Keypoints":
+        if mode == "Keypoints":
             df = state["keypoints_df"]
             if df.empty:
                 data_ax.text(0.5, 0.5, "No 3D keypoint data", transform=data_ax.transAxes, ha="center", va="center")

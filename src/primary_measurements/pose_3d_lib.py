@@ -1,4 +1,4 @@
-"""3D pose reconstruction and kinematics pipeline from old player-tracking scripts."""
+"""3D pose reconstruction"""
 
 from __future__ import annotations
 
@@ -137,84 +137,6 @@ def _triangulate_clip(
     mean_l = float(np.mean(repro_err_l)) if repro_err_l else float("nan")
     mean_r = float(np.mean(repro_err_r)) if repro_err_r else float("nan")
     return n_frames, mean_l, mean_r
-
-
-def _load_3d_array(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    df = pd.read_csv(path)
-    if "frame" in df.columns:
-        df = df.sort_values("frame").reset_index(drop=True)
-        frame_idx = df["frame"].to_numpy(int)
-    else:
-        frame_idx = np.arange(len(df), dtype=int)
-
-    cols: list[str] = []
-    for name in LANDMARK_NAMES:
-        for suffix in ("_x", "_y", "_z"):
-            col = f"{name}{suffix}"
-            if col not in df.columns:
-                raise ValueError(f"Missing column '{col}' in {path.name}")
-            cols.append(col)
-
-    arr = df[cols].to_numpy(float).reshape(len(df), len(LANDMARK_NAMES), 3)
-    return arr, frame_idx
-
-
-def _angle_series(frames_xyz: np.ndarray, a: str, b: str, c: str) -> np.ndarray:
-    A = frames_xyz[:, IDX[a], :]
-    B = frames_xyz[:, IDX[b], :]
-    C = frames_xyz[:, IDX[c], :]
-
-    v1 = A - B
-    v2 = C - B
-    n1 = np.linalg.norm(v1, axis=1)
-    n2 = np.linalg.norm(v2, axis=1)
-    denom = n1 * n2
-
-    valid = np.isfinite(v1).all(axis=1) & np.isfinite(v2).all(axis=1) & (denom > 1e-8)
-    angle = np.full(len(frames_xyz), np.nan, dtype=float)
-
-    if np.any(valid):
-        cosang = np.einsum("ij,ij->i", v1[valid], v2[valid]) / denom[valid]
-        cosang = np.clip(cosang, -1.0, 1.0)
-        angle[valid] = np.degrees(np.arccos(cosang))
-
-    return angle
-
-
-def _maybe_smooth(series: np.ndarray, window: int) -> np.ndarray:
-    if window >= 3 and window % 2 == 1:
-        s = pd.Series(series, dtype=float)
-        s = s.rolling(window, center=True, min_periods=1).median()
-        s = s.rolling(window, center=True, min_periods=1).mean()
-        return s.to_numpy(float)
-    return series
-
-
-def _central_diff_1d(x: np.ndarray, fps: float) -> np.ndarray:
-    T = len(x)
-    if T == 0:
-        return np.array([], dtype=float)
-    if T == 1:
-        return np.zeros(1, dtype=float)
-
-    dx = np.zeros(T, dtype=float)
-    dx[0] = (x[1] - x[0]) * fps
-    dx[-1] = (x[-1] - x[-2]) * fps
-    if T > 2:
-        dx[1:-1] = (x[2:] - x[:-2]) * (fps / 2.0)
-    return dx
-
-
-def _interp_fill_vec(x: np.ndarray) -> np.ndarray:
-    s = pd.Series(x, dtype=float)
-    s = s.interpolate(limit_direction="both")
-    s = s.bfill().ffill()
-    return s.to_numpy(float)
-
-
-def _base_num(path: Path) -> int | float:
-    m = re.search(r"(\d+)", path.stem)
-    return int(m.group(1)) if m else float("inf")
 
 
 def run_pose_3d_pipeline(

@@ -1,4 +1,4 @@
-"""Alignment preprocessing pipeline mirroring notebooks/data_exploration.ipynb."""
+"""Description: Alignment using release frame found from phases node"""
 
 from __future__ import annotations
 
@@ -52,56 +52,6 @@ KEYPOINT_COLS: list[str] = [
     "left_foot_index_x", "left_foot_index_y", "left_foot_index_z",
     "right_foot_index_x", "right_foot_index_y", "right_foot_index_z",
 ]
-
-JOINT_COLS: list[str] = [
-    "elbow_flex_l",
-    "elbow_flex_r",
-    "shoulder_flex_l",
-    "shoulder_flex_r",
-    "hip_flex_l",
-    "hip_flex_r",
-    "knee_flex_l",
-    "knee_flex_r",
-    "ankle_flex_l",
-    "ankle_flex_r",
-]
-
-KEYPOINT_FLAGS: dict[str, bool] = {
-    "nose": False,
-    "left_eye_inner": False,
-    "left_eye": False,
-    "left_eye_outer": False,
-    "right_eye_inner": False,
-    "right_eye": False,
-    "right_eye_outer": False,
-    "left_ear": False,
-    "right_ear": False,
-    "mouth_left": False,
-    "mouth_right": False,
-    "left_shoulder": False,
-    "right_shoulder": True,
-    "left_elbow": False,
-    "right_elbow": True,
-    "left_wrist": False,
-    "right_wrist": False,
-    "left_pinky": False,
-    "right_pinky": False,
-    "left_index": False,
-    "right_index": False,
-    "left_thumb": False,
-    "right_thumb": False,
-    "left_hip": False,
-    "right_hip": True,
-    "left_knee": False,
-    "right_knee": True,
-    "left_ankle": False,
-    "right_ankle": False,
-    "left_heel": False,
-    "right_heel": False,
-    "left_foot_index": False,
-    "right_foot_index": False,
-}
-
 
 def _format_path(template_or_path: str, cfg: dict[str, Any]) -> Path:
     return PROJECT_ROOT / Path(template_or_path.format(athlete=cfg["athlete"], session=cfg["session"]))
@@ -448,11 +398,6 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
 
     fps = int(cfg.get("player_tracking_fps", 60))
 
-    angles_unaligned = _load_csv_dict_or_single(metrics_dir / "3d_angles_cropped")
-    if not angles_unaligned:
-        angles_path = _format_path(cfg["paths"]["angles"], cfg)
-        if angles_path.exists():
-            angles_unaligned = _to_base_name_dict(load_csv_folder(angles_path))
     keypoints_unaligned = _load_csv_dict_or_single(metrics_dir / "3d_keypoints_cropped")
     if not keypoints_unaligned:
         keypoints_path = _format_path(cfg["paths"]["keypoints_3d"], cfg)
@@ -466,10 +411,6 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
     release_log = pd.read_csv(release_log_path) if release_log_path.exists() else pd.DataFrame()
     if not release_log.empty and "file" in release_log.columns:
         release_log["file"] = release_log["file"].apply(extract_base_freethrow_name)
-
-    angles_release = _load_csv_dict_or_single(metrics_dir / "3d_angles_aligned_release")
-    if not angles_release:
-        angles_release = _apply_shift_with_log(angles_unaligned, release_log, JOINT_COLS, fps)
 
     keypoints_release = _load_csv_dict_or_single(metrics_dir / "3d_keypoints_aligned_release")
     if not keypoints_release:
@@ -494,9 +435,6 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
             target_fps=ball_fps,
         )
 
-    angle_mode_sets = {
-        "Aligned (Release)": angles_release,
-    }
     keypoint_mode_sets = {
         "Aligned (Release)": keypoints_release,
     }
@@ -504,25 +442,15 @@ def run_alignment_viewer(cfg: dict[str, Any]) -> dict[str, Any]:
         "Aligned (Release)": ball_release,
     }
 
-    angle_curves = _common_numeric_columns([angles_unaligned], exclude={"frame"})
     keypoint_curves = _common_numeric_columns([keypoints_unaligned], exclude={"frame"})
     ball_curves = _common_numeric_columns([ball_unaligned], exclude={"frame"})
 
-    if not angle_curves and not keypoint_curves and not ball_curves:
+    if not keypoint_curves and not ball_curves:
         raise ValueError(
-            "No aligned/unaligned datasets found for viewer. Run align/extract steps first."
+            "No aligned/unaligned keypoint/ball datasets found for viewer. Run align/extract steps first."
         )
 
     tab_specs = {
-        "Angles": {
-            "left": angles_unaligned,
-            "right": angle_mode_sets["Aligned (Release)"],
-            "left_label": "Unaligned",
-            "curves": angle_curves,
-            "ylabel": "Angle",
-            "show_release_left": False,
-            "show_release_right": True,
-        },
         "Keypoints": {
             "left": keypoints_unaligned,
             "right": keypoint_mode_sets["Aligned (Release)"],

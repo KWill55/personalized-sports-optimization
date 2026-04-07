@@ -31,6 +31,4 @@ if __name__ == "__main__":
     result = node.run()
     print(f"Ball trajectory extraction complete: {result}")
 
-
-# Backward-compatible alias for older imports.
 BallDetectionNode = BallTrajectoryNode

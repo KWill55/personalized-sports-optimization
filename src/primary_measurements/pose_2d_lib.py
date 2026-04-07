@@ -1,4 +1,4 @@
-"""2D pose extraction pipeline ported from old_pipeline player tracking scripts."""
+"""2D pose extraction"""
 
 from __future__ import annotations
 

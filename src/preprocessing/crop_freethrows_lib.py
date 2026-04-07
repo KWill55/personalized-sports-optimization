@@ -1,4 +1,4 @@
-"""Adaptive freethrow cropping around release-aligned frames."""
+"""Description: Freethrow cropping"""
 
 from __future__ import annotations
 

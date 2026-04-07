@@ -64,8 +64,6 @@ class CameraThread(threading.Thread):
 
 class CalibrationCaptureGui:
     """
-    OOP replacement for capture_cb_mono.py and capture_cb_pairs.py.
-
     Modes:
       - run_mono_capture(): mono_left / mono_right captures with TAB switching
       - run_stereo_pair_capture(): side-by-side pair captures

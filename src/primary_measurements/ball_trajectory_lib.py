@@ -1,4 +1,4 @@
-"""Ball trajectory extraction pipeline based on notebooks/yolo_ball_detection.ipynb."""
+"""Ball trajectory extraction"""
 
 from __future__ import annotations
 

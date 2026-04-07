@@ -1,4 +1,4 @@
-"""Verification utilities for frame-valid detection coverage across modalities."""
+"""Verification utilities for frame-valid detection coverage"""
 
 from __future__ import annotations
 

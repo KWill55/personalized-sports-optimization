@@ -14,7 +14,7 @@ from utils.io_utils import load_config
 
 
 class SidePoseNode:
-    """Orchestrates side-camera 2D pose extraction (with hand-keypoint compatibility output)."""
+    """Orchestrates side-camera 2D pose extraction."""
 
     def __init__(self, cfg: dict[str, Any] | None = None, config_filename: str = "project_config.yaml") -> None:
         self.cfg = cfg if cfg is not None else load_config(config_filename)
