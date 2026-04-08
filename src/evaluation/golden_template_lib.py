@@ -87,6 +87,28 @@ def _load_raw_release_map(metrics_dir: Path) -> dict[str, int]:
     return {str(r["base"]): int(r[release_col]) for _, r in phases.iterrows()}
 
 
+def _infer_already_relative(dfs: dict[str, pd.DataFrame], *, max_trials: int = 12) -> bool:
+    """Heuristic: frame is already release-relative if most sampled trials span negative..positive around 0."""
+    if not dfs:
+        return False
+    checked = 0
+    relative_hits = 0
+    for _, df in list(dfs.items())[:max_trials]:
+        if "frame" not in df.columns:
+            continue
+        frame = pd.to_numeric(df["frame"], errors="coerce").dropna().to_numpy(dtype=float)
+        if frame.size == 0:
+            continue
+        checked += 1
+        f_min = float(np.min(frame))
+        f_max = float(np.max(frame))
+        if (f_min < 0.0) and (f_max > 0.0) and (f_min <= 0.0 <= f_max):
+            relative_hits += 1
+    if checked == 0:
+        return False
+    return (relative_hits / float(checked)) >= 0.6
+
+
 def _load_sources_for_session(
     athlete: str,
     session: str,
@@ -127,19 +149,22 @@ def _load_sources_for_session(
             "dfs": keypoints_dfs,
             "path": keypoints_path,
             "release_map": {},
-            "already_relative": bool(keypoints_path and "aligned_release" in keypoints_path.name),
+            "already_relative": bool(keypoints_path and "aligned_release" in keypoints_path.name)
+            or _infer_already_relative(keypoints_dfs),
         },
         "angles": {
             "dfs": angles_dfs,
             "path": angles_path,
             "release_map": release_raw,
-            "already_relative": bool(angles_path and "aligned_release" in angles_path.name),
+            "already_relative": bool(angles_path and "aligned_release" in angles_path.name)
+            or _infer_already_relative(angles_dfs),
         },
         "ball": {
             "dfs": ball_dfs,
             "path": ball_path,
             "release_map": {},
-            "already_relative": bool(ball_path and "aligned_release" in ball_path.name),
+            "already_relative": bool(ball_path and "aligned_release" in ball_path.name)
+            or _infer_already_relative(ball_dfs),
         },
     }
     return sources, metrics_dir
